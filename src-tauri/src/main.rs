@@ -8,7 +8,10 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::process::Stdio;
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicBool, Ordering},
+};
 use tauri::{Emitter, Manager};
 
 // Modello gratuito più potente (Zen): lista in ordine di preferenza.
@@ -325,27 +328,38 @@ fn ensure_free_model() -> String {
 }
 
 fn ensure_serve_daemon() {
-    if serve_alive() {
-        return;
-    }
-    std::thread::spawn(|| loop {
-        #[cfg(target_os = "windows")]
-        let mut cmd = {
-            let mut c = std::process::Command::new("cmd");
-            c.args(["/C", "opencode", "serve", "--port", &SERVE_PORT.to_string()]);
-            c
-        };
-        #[cfg(not(target_os = "windows"))]
-        let mut cmd = {
-            let mut c = std::process::Command::new("opencode");
-            c.args(["serve", "--port", &SERVE_PORT.to_string()]);
-            c
-        };
-        cmd.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
-        let _ = cmd.status();
-        std::thread::sleep(std::time::Duration::from_secs(5));
+    static SERVE_ONCE: std::sync::Once = std::sync::Once::new();
+    SERVE_ONCE.call_once(|| {
+        std::thread::spawn(|| loop {
+            if !SERVE_ENABLED.load(Ordering::SeqCst) {
+                // Pausa riparazione: non rilanciare il serve (libera il lock sul DB)
+                std::thread::sleep(std::time::Duration::from_secs(2));
+                continue;
+            }
+            if serve_alive() {
+                std::thread::sleep(std::time::Duration::from_secs(5));
+                continue;
+            }
+            #[cfg(target_os = "windows")]
+            let mut cmd = {
+                let mut c = std::process::Command::new("cmd");
+                c.args(["/C", "opencode", "serve", "--port", &SERVE_PORT.to_string()]);
+                c
+            };
+            #[cfg(not(target_os = "windows"))]
+            let mut cmd = {
+                let mut c = std::process::Command::new("opencode");
+                c.args(["serve", "--port", &SERVE_PORT.to_string()]);
+                c
+            };
+            cmd.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+            let _ = cmd.status();
+            std::thread::sleep(std::time::Duration::from_secs(5));
+        });
     });
 }
+
+static SERVE_ENABLED: AtomicBool = AtomicBool::new(true);
 
 // ---------- tasks (fa da sola ciò che le dice l'utente) ----------
 
@@ -754,10 +768,28 @@ fn spawn_update_autocheck(app: tauri::AppHandle) {
     });
 }
 
+fn try_move_db() -> Result<usize, String> {
+    let dir = opencode_data_dir();
+    let backup = dir.join(format!("backup-corruptdb-{}", now_secs()));
+    std::fs::create_dir_all(&backup).map_err(|e| format!("backup: {e}"))?;
+    let mut moved = 0;
+    for name in ["opencode.db", "opencode.db-shm", "opencode.db-wal"] {
+        let src = dir.join(name);
+        if src.exists() {
+            std::fs::rename(&src, backup.join(name))
+                .map_err(|e| format!("{name} bloccato: {e}"))?;
+            moved += 1;
+        }
+    }
+    Ok(moved)
+}
+
 #[tauri::command]
 fn repair_opencode_db(app: tauri::AppHandle) -> Result<String, String> {
-    // Ripara il DB corrotto ("no session table"): chiude opencode per
-    // liberare il lock, sposta il DB in backup, il serve si riavvia da solo.
+    // Ripara il DB corrotto ("no session table"): ferma il serve (nostro compreso,
+    // che altrimenti riblocca il DB ogni 5s), chiude opencode, sposta il DB in backup.
+    SERVE_ENABLED.store(false, Ordering::SeqCst);
+    std::thread::sleep(std::time::Duration::from_secs(1));
     #[cfg(target_os = "windows")]
     {
         let _ = std::process::Command::new("cmd")
@@ -770,23 +802,23 @@ fn repair_opencode_db(app: tauri::AppHandle) -> Result<String, String> {
             .args(["-f", "opencode serve"])
             .output();
     }
-    std::thread::sleep(std::time::Duration::from_secs(3));
-    let dir = opencode_data_dir();
-    let backup = dir.join(format!("backup-corruptdb-{}", now_secs()));
-    let _ = std::fs::create_dir_all(&backup);
-    let mut moved = 0;
-    for name in ["opencode.db", "opencode.db-shm", "opencode.db-wal"] {
-        let src = dir.join(name);
-        if src.exists() {
-            std::fs::rename(&src, backup.join(name)).map_err(|e| {
-                format!("{name} ancora bloccato (chiudi OpenCode e riprova): {e}")
-            })?;
-            moved += 1;
+    let mut last_err = String::from("file sempre bloccati");
+    for _ in 0..4 {
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        match try_move_db() {
+            Ok(moved) => {
+                SERVE_ENABLED.store(true, Ordering::SeqCst);
+                ensure_serve_daemon();
+                let _ = &app;
+                return Ok(format!("DB spostato in backup ({moved} file)."));
+            }
+            Err(e) => last_err = e,
         }
     }
-    ensure_serve_daemon();
-    let _ = &app;
-    Ok(format!("DB spostato in backup ({moved} file)."))
+    SERVE_ENABLED.store(true, Ordering::SeqCst);
+    Err(format!(
+        "riparazione non riuscita ({last_err}). Esci da ZEN-AGENT (tray), chiudi OpenCode e rilancia."
+    ))
 }
 
 // ---------- window helpers ----------

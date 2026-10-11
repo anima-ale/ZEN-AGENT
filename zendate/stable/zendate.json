@@ -1,6 +1,6 @@
 {
-    "version":  "0.1.1",
-    "notes":  "- Prima release distribuita via ZENdate (canale stable): verifica end-to-end del sistema di aggiornamento.",
-    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.1.1/ZEN-AGENT_0.1.1_x64-setup.exe",
-    "sha256":  "d108b9f372e4e2325e55d816a5b68f2d90b818c6cc04c45c26d14fe4c538178b"
+    "version":  "0.1.2",
+    "notes":  "- Riparazione DB affidabile: il serve si mette in pausa durante la riparazione (niente piu race sul lock).",
+    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.1.2/ZEN-AGENT_0.1.2_x64-setup.exe",
+    "sha256":  "f3b23b57707f2ee1746966e4753a25b96f7e8646e0c9a791e7a3adf4be028ba9"
 }

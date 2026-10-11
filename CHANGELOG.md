@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.1.2]
+- Riparazione DB affidabile: il serve si mette in pausa durante la riparazione (niente piu race sul lock).
+
 ## [0.1.1]
 - Prima release distribuita via ZENdate (canale stable): verifica end-to-end del sistema di aggiornamento.
 

@@ -1,0 +1,1 @@
+- Riparazione DB affidabile: il serve si mette in pausa durante la riparazione (niente piu race sul lock).
