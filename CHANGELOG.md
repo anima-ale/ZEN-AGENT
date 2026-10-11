@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.4.0]
+- Dove esce ZEN (impostazioni): sopra, sotto a sinistra sopra la barra app, lato sinistro o destro. Tracking, finestra e gesto di trascinamento seguono il bordo scelto.
+
 ## [0.3.3]
 - Ombre CSS rimosse da tutte le card (goccia, pannello, snake, task, impostazioni, input): niente più ombra storta, solo bordo piatto NEO1.
 

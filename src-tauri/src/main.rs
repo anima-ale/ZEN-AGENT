@@ -1133,23 +1133,68 @@ fn show_panel_window(app: &tauri::AppHandle) {
 }
 
 fn size_drop_to_monitor(app: &tauri::AppHandle) {
-    // Finestra piccola centrata in alto: il resto dello schermo resta cliccabile.
+    // Finestrella piccola sul bordo scelto: il resto dello schermo resta cliccabile.
+    let pos = stored_drop_position(app);
     if let Some(w) = app.get_webview_window("drop") {
         if let Ok(Some(m)) = w.current_monitor() {
             let scale = m.scale_factor();
             let ww = (280.0 * scale) as u32;
             let wh = (150.0 * scale) as u32;
             let sw = m.size().width;
+            let sh = m.size().height;
+            let (x, y) = match pos.as_str() {
+                // Sopra la barra delle applicazioni, spazio libero a sinistra
+                "bottom" => (
+                    (40.0 * scale) as i32,
+                    sh.saturating_sub(wh).saturating_sub((70.0 * scale) as u32) as i32,
+                ),
+                "left" => (0, (sh.saturating_sub(wh)) as i32 / 2),
+                "right" => ((sw.saturating_sub(ww)) as i32, (sh.saturating_sub(wh)) as i32 / 2),
+                _ => ((sw.saturating_sub(ww)) as i32 / 2, 0),
+            };
             let _ = w.set_size(tauri::Size::Physical(tauri::PhysicalSize {
                 width: ww,
                 height: wh,
             }));
-            let _ = w.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
-                x: (sw.saturating_sub(ww)) as i32 / 2,
-                y: 0,
-            }));
+            let _ = w.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
         }
     }
+}
+
+fn drop_position_file(app: &tauri::AppHandle) -> PathBuf {
+    app.path()
+        .app_data_dir()
+        .unwrap_or_else(|_| home_dir().join(".zen-agent"))
+        .join("drop-position.txt")
+}
+
+fn stored_drop_position(app: &tauri::AppHandle) -> String {
+    std::fs::read_to_string(drop_position_file(app))
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| ["top", "bottom", "left", "right"].contains(&s.as_str()))
+        .unwrap_or_else(|| "top".to_string())
+}
+
+#[tauri::command]
+fn get_drop_position(app: tauri::AppHandle) -> String {
+    stored_drop_position(&app)
+}
+
+#[tauri::command]
+fn set_drop_position(app: tauri::AppHandle, position: String) -> Result<(), String> {
+    if !["top", "bottom", "left", "right"].contains(&position.as_str()) {
+        return Err("posizione non valida (top|bottom|left|right)".into());
+    }
+    let f = drop_position_file(&app);
+    if let Some(parent) = f.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    std::fs::write(&f, &position).map_err(|e| e.to_string())?;
+    DROP_PINNED.store(false, Ordering::SeqCst);
+    size_drop_to_monitor(&app);
+    let _ = app.emit("zen-drop-position", position);
+    Ok(())
 }
 
 #[cfg(target_os = "windows")]
@@ -1236,9 +1281,23 @@ fn setup_drop_tracker(app: &tauri::AppHandle) {
         let held = winmouse::lbutton_held();
         #[cfg(not(target_os = "windows"))]
         let held = false;
+        // Bordo assegnato a ZEN (dalle impostazioni): distanza del cursore da lì
+        let pos = stored_drop_position(&handle);
+        let (mw, mh) = w
+            .current_monitor()
+            .ok()
+            .flatten()
+            .map(|m| (m.size().width as i32, m.size().height as i32))
+            .unwrap_or((1920, 1080));
+        let edge_dist: i32 = match pos.as_str() {
+            "bottom" => mh - cy,
+            "left" => cx,
+            "right" => mw - cx,
+            _ => cy,
+        };
         // Watchdog anti-stuck: cursore lontano per piu di ~3s -> forza chiusura
         // (mai durante una notifica di risposta: resta finché non la apri)
-        if cy > 320 && !DROP_DRAGGING.load(Ordering::SeqCst) && !NOTIFY_PINNED.load(Ordering::SeqCst) {
+        if edge_dist > 320 && !DROP_DRAGGING.load(Ordering::SeqCst) && !NOTIFY_PINNED.load(Ordering::SeqCst) {
             far_ticks += 1;
             if far_ticks > 36 {
                 DROP_PINNED.store(false, Ordering::SeqCst);
@@ -1249,10 +1308,10 @@ fn setup_drop_tracker(app: &tauri::AppHandle) {
         }
         let pinned = DROP_PINNED.load(Ordering::SeqCst) || DROP_DRAGGING.load(Ordering::SeqCst);
         let notify = NOTIFY_PINNED.load(Ordering::SeqCst);
-        // Zona larga: la goccia resta finché il cursore è nei ~120px in alto
-        // (non solo a 4px), così si fa in tempo a prenderla e trascinarla giù.
+        // Zona larga sul bordo assegnato: la goccia resta finché il cursore
+        // è nei ~120px, così si fa in tempo a prenderla e trascinarla.
         // La finestra resta click-through tranne sulla pill: nessun click rubato.
-        let want_visible = cy <= 120 || pinned || notify || (held && cy <= 220);
+        let want_visible = edge_dist <= 120 || pinned || notify || (held && edge_dist <= 220);
         let is_visible = w.is_visible().unwrap_or(true);
         if want_visible && !is_visible {
             let _ = w.show();
@@ -1323,6 +1382,8 @@ fn main() {
             hide_tasks,
             show_settings,
             hide_settings,
+            get_drop_position,
+            set_drop_position,
             get_autostart,
             set_autostart,
             get_sound,

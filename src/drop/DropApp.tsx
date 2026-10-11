@@ -42,9 +42,10 @@ function playNotify(kind: string) {
 export default function DropApp() {
   const [visible, setVisible] = useState(false);
   const [dragFiles, setDragFiles] = useState(false);
-  const [pull, setPull] = useState(0);
+  const [pull, setPull] = useState<[number, number]>([0, 0]);
   const [ready, setReady] = useState(false);
-  const dragState = useRef({ dragging: false, startY: 0, opened: false });
+  const [pos, setPos] = useState("top");
+  const dragState = useRef({ dragging: false, startX: 0, startY: 0, opened: false });
   const hideTimer = useRef<number | null>(null);
 
   const cancelHide = useCallback(() => {
@@ -85,7 +86,7 @@ export default function DropApp() {
 
   const openPanel = useCallback(async () => {
     dragState.current.opened = true;
-    setPull(0);
+    setPull([0, 0]);
     setVisible(false);
     setDragFiles(false);
     setReady(false);
@@ -107,7 +108,12 @@ export default function DropApp() {
     // qui sincronizziamo solo la pill per l'animazione.
     let alive = true;
     const unlistens: Array<() => void> = [];
+    api.getDropPosition().then((p) => alive && p && setPos(p)).catch(() => undefined);
     (async () => {
+      unlistens.push(await listen<string>("zen-drop-position", (e) => {
+        if (alive && e.payload) setPos(e.payload);
+      }));
+      if (!alive) return;
       unlistens.push(await listen<boolean>("zen-drop-state", (e) => {
         if (!alive) return;
         if (e.payload) show();
@@ -185,28 +191,52 @@ export default function DropApp() {
     };
   }, [show, hide, cancelHide]);
 
+  // Gesto verso il centro dello schermo, secondo il bordo assegnato a ZEN
+  const toward = useCallback((e: React.PointerEvent) => {
+    if (pos === "left") return e.clientX - dragState.current.startX;
+    if (pos === "right") return dragState.current.startX - e.clientX;
+    if (pos === "bottom") return dragState.current.startY - e.clientY;
+    return e.clientY - dragState.current.startY;
+  }, [pos]);
+
   const onPointerDown = (e: React.PointerEvent) => {
-    dragState.current = { dragging: true, startY: e.clientY, opened: false };
+    dragState.current = { dragging: true, startX: e.clientX, startY: e.clientY, opened: false };
     api.setDropDragging(true).catch(() => undefined);
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
   };
   const onPointerMove = (e: React.PointerEvent) => {
     if (!dragState.current.dragging) return;
-    const dy = e.clientY - dragState.current.startY;
-    if (dy > 0) setPull(Math.min(dy, 160));
-    if (dy > 70 && !dragState.current.opened) openPanel();
+    const d = toward(e);
+    if (d > 0) {
+      const v = Math.min(d, 160);
+      setPull(pos === "left" || pos === "right" ? [v, 0] : [0, v]);
+    }
+    if (d > 70 && !dragState.current.opened) openPanel();
   };
   const endDrag = (e: React.PointerEvent, clicked: boolean) => {
     if (!dragState.current.dragging) return;
-    const dy = e.clientY - dragState.current.startY;
+    const d = toward(e);
     dragState.current.dragging = false;
     api.setDropDragging(false).catch(() => undefined);
-    if (clicked && dy <= 70 && dy > -10 && !dragState.current.opened) openPanel();
+    if (clicked && d <= 70 && d > -10 && !dragState.current.opened) openPanel();
     else {
-      setPull(0);
+      setPull([0, 0]);
       hide();
     }
   };
+
+  const hint =
+    dragFiles
+      ? "Rilascia il file: si allega alla tua domanda"
+      : ready
+        ? "ZEN Nebula ti ha risposto: apri per leggere"
+        : pos === "bottom"
+          ? "Trascina su per aprire ZEN-AGENT"
+          : pos === "left"
+            ? "Trascina a destra per aprire ZEN-AGENT"
+            : pos === "right"
+              ? "Trascina a sinistra per aprire ZEN-AGENT"
+              : "Trascina giu per aprire ZEN-AGENT";
 
   return (
     <div id="drop-root">
@@ -214,7 +244,7 @@ export default function DropApp() {
         <div
           id="drop"
           className={`${visible ? "visible" : ""} ${dragFiles ? "attach" : ""} ${ready ? "notify" : ""}`}
-          style={pull > 0 ? { transform: `translateY(${pull}px)` } : undefined}
+          style={pull[0] || pull[1] ? { transform: `translate(${pull[0]}px, ${pull[1]}px)` } : undefined}
           onMouseEnter={show}
           onMouseLeave={hideDelayed}
           onPointerDown={onPointerDown}
@@ -228,11 +258,7 @@ export default function DropApp() {
         </div>
       </div>
       <div id="drop-hint" className={visible ? "visible" : ""}>
-        {dragFiles
-          ? "Rilascia il file: si allega alla tua domanda"
-          : ready
-            ? "ZEN Nebula ti ha risposto: apri per leggere"
-            : "Trascina giu per aprire ZEN-AGENT"}
+        {hint}
       </div>
     </div>
   );

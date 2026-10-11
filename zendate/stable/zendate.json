@@ -1,6 +1,6 @@
 {
-    "version":  "0.3.3",
-    "notes":  "- Ombre CSS rimosse da tutte le card (goccia, pannello, snake, task, impostazioni, input): niente più ombra storta, solo bordo piatto NEO1.",
-    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.3.3/ZEN-AGENT_0.3.3_x64-setup.exe",
-    "sha256":  "c9e7562ce1debc1914f2ca838de2c9d91cba5b3fec1b8576740e5a523a0282ac"
+    "version":  "0.4.0",
+    "notes":  "- Dove esce ZEN (impostazioni): sopra, sotto a sinistra sopra la barra app, lato sinistro o destro. Tracking, finestra e gesto di trascinamento seguono il bordo scelto.",
+    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.4.0/ZEN-AGENT_0.4.0_x64-setup.exe",
+    "sha256":  "07d36f9cd96db21014a490c4176ba48c2d5aef6f706318ec59c58b82f5d88c72"
 }

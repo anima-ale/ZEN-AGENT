@@ -18,6 +18,13 @@ const SOUNDS = [
   { id: "off", label: "muto" },
 ] as const;
 
+const POSITIONS = [
+  { id: "top", label: "sopra" },
+  { id: "bottom", label: "sotto a sx" },
+  { id: "left", label: "sinistra" },
+  { id: "right", label: "destra" },
+] as const;
+
 function preview(kind: string) {
   if (kind === "off") return;
   try {
@@ -53,6 +60,7 @@ export default function SettingsApp() {
   const [channel, setChannel] = useState("stable");
   const [auto, setAuto] = useState(true);
   const [sound, setSound] = useState("ding");
+  const [pos, setPos] = useState("top");
   const [msg, setMsg] = useState("");
 
   const reload = useCallback(async () => {
@@ -64,6 +72,9 @@ export default function SettingsApp() {
     } catch { /* ignora */ }
     try {
       setSound(await api.getSound());
+    } catch { /* ignora */ }
+    try {
+      setPos(await api.getDropPosition());
     } catch { /* ignora */ }
   }, []);
 
@@ -105,6 +116,16 @@ export default function SettingsApp() {
     }
   };
 
+  const changePos = async (p: string) => {
+    try {
+      await api.setDropPosition(p);
+      setPos(p);
+      setMsg("posizione ZEN aggiornata.");
+    } catch (e) {
+      setMsg("posizione fallita: " + String(e));
+    }
+  };
+
   return (
     <div id="aux-root">
       <div id="aux-card">
@@ -136,6 +157,15 @@ export default function SettingsApp() {
             {SOUNDS.map((s) => (
               <button key={s.id} className={`chan ${sound === s.id ? "on" : ""}`} onClick={() => changeSound(s.id)}>
                 {s.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="aux-label">DOVE ESCE ZEN</div>
+          <div id="set-row">
+            {POSITIONS.map((p) => (
+              <button key={p.id} className={`chan ${pos === p.id ? "on" : ""}`} onClick={() => changePos(p.id)}>
+                {p.label}
               </button>
             ))}
           </div>
