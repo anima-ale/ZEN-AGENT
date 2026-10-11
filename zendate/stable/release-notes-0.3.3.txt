@@ -1,0 +1,1 @@
+- Ombre CSS rimosse da tutte le card (goccia, pannello, snake, task, impostazioni, input): niente più ombra storta, solo bordo piatto NEO1.

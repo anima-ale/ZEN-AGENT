@@ -1,6 +1,6 @@
 {
-    "version":  "0.3.2",
-    "notes":  "- Tolto il bordo fantasma attorno alle finestre: ombra di sistema disattivata (le card mantengono la loro ombra CSS).",
-    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.3.2/ZEN-AGENT_0.3.2_x64-setup.exe",
-    "sha256":  "de73e4e768516dc9a31ac1afecabc9bbb290afa90c59c5cc87f1f168af678055"
+    "version":  "0.3.3",
+    "notes":  "- Ombre CSS rimosse da tutte le card (goccia, pannello, snake, task, impostazioni, input): niente più ombra storta, solo bordo piatto NEO1.",
+    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.3.3/ZEN-AGENT_0.3.3_x64-setup.exe",
+    "sha256":  "c9e7562ce1debc1914f2ca838de2c9d91cba5b3fec1b8576740e5a523a0282ac"
 }

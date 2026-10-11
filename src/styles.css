@@ -80,7 +80,7 @@ button:focus-visible, textarea:focus-visible {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: none;
   opacity: 0;
   transform: translateY(8px);
   transition: background 0.15s ease, border-color 0.15s ease, opacity 0.2s ease-out, transform 0.2s ease-out;
@@ -144,7 +144,7 @@ button:focus-visible, textarea:focus-visible {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.65);
+  box-shadow: none;
   animation: neo1In 0.2s ease-out;
 }
 #panel-header {
@@ -375,7 +375,7 @@ button:focus-visible, textarea:focus-visible {
   backdrop-filter: blur(16px) saturate(140%);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: none;
   transition: border-color 0.15s ease;
 }
 .unified-input-wrapper:hover { border-color: rgba(255, 255, 255, 0.14); }
@@ -611,7 +611,7 @@ body[data-graphics="neo"] *:not(.unified-input-wrapper):not(.unified-input-wrapp
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.65);
+  box-shadow: none;
   overflow: hidden;
   animation: neo1In 0.2s ease-out;
   -webkit-app-region: drag;
@@ -716,7 +716,7 @@ body[data-graphics="neo"] *:not(.unified-input-wrapper):not(.unified-input-wrapp
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.65);
+  box-shadow: none;
   animation: neo1In 0.2s ease-out;
   -webkit-app-region: drag;
 }

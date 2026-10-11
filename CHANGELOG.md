@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.3.3]
+- Ombre CSS rimosse da tutte le card (goccia, pannello, snake, task, impostazioni, input): niente più ombra storta, solo bordo piatto NEO1.
+
 ## [0.3.2]
 - Tolto il bordo fantasma attorno alle finestre: ombra di sistema disattivata (le card mantengono la loro ombra CSS).
 
