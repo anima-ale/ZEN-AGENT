@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.2.2]
+- Goccia: zona di permanenza allargata a ~120px dal bordo (prima spariva dopo pochissimi pixel) + hide con grazia 600ms; trascinamento giù ora fattibile. Click-through invariato fuori dalla pill.
+
 ## [0.2.1]
 - Fix risposte ZEN Nebula: tolto l'ordine di negare il motore e l'auto-approvazione totale (facevano scattare solo preamboli su identità/conferme). Ora: niente preamboli, dritto al compito; autonomia sul sicuro, conferma solo sul distruttivo/rischioso.
 

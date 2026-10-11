@@ -12,12 +12,21 @@ export default function DropApp() {
   const [dragFiles, setDragFiles] = useState(false);
   const [pull, setPull] = useState(0);
   const dragState = useRef({ dragging: false, startY: 0, opened: false });
+  const hideTimer = useRef<number | null>(null);
+
+  const cancelHide = useCallback(() => {
+    if (hideTimer.current !== null) {
+      window.clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+  }, []);
 
   const show = useCallback(() => {
     // Hover transiente: NON pinna, così quando il mouse si allontana
-    // il tracker backend nasconde subito la finestrella.
+    // per davvero il tracker backend nasconde la finestrella.
+    cancelHide();
     setVisible(true);
-  }, []);
+  }, [cancelHide]);
 
   const hide = useCallback(() => {
     if (dragState.current.dragging) return;
@@ -25,6 +34,17 @@ export default function DropApp() {
     setDragFiles(false);
     api.setDropPinned(false).catch(() => undefined);
   }, []);
+
+  // Hide con grazia: sul mouse-leave aspetta 600ms (cancellato al rientro),
+  // così la pill non sparisce dopo pochissimi pixel mentre la si raggiunge.
+  const hideDelayed = useCallback(() => {
+    if (dragState.current.dragging) return;
+    cancelHide();
+    hideTimer.current = window.setTimeout(() => {
+      hideTimer.current = null;
+      hide();
+    }, 600);
+  }, [cancelHide, hide]);
 
   const openPanel = useCallback(async () => {
     dragState.current.opened = true;
@@ -140,7 +160,7 @@ export default function DropApp() {
           className={`${visible ? "visible" : ""} ${dragFiles ? "attach" : ""}`}
           style={pull > 0 ? { transform: `translateY(${pull}px)` } : undefined}
           onMouseEnter={show}
-          onMouseLeave={hide}
+          onMouseLeave={hideDelayed}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={(e) => endDrag(e, true)}

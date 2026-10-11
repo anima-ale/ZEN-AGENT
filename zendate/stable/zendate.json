@@ -1,6 +1,6 @@
 {
-    "version":  "0.2.1",
-    "notes":  "- Fix risposte ZEN Nebula: tolto l\u0027ordine di negare il motore e l\u0027auto-approvazione totale (facevano scattare solo preamboli su identità/conferme). Ora: niente preamboli, dritto al compito; autonomia sul sicuro, conferma solo sul distruttivo/rischioso.",
-    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.2.1/ZEN-AGENT_0.2.1_x64-setup.exe",
-    "sha256":  "983d717ccd49c16e3ecd87fa0ed53feb419ab3ee952a78dd73da4e1c09a0edd3"
+    "version":  "0.2.2",
+    "notes":  "- Goccia: zona di permanenza allargata a ~120px dal bordo (prima spariva dopo pochissimi pixel) + hide con grazia 600ms; trascinamento giù ora fattibile. Click-through invariato fuori dalla pill.",
+    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.2.2/ZEN-AGENT_0.2.2_x64-setup.exe",
+    "sha256":  "48e1ae00955be671ebf5316c04cb3a8fab8ea15d244995123ae5aa5011c2182d"
 }

@@ -1031,7 +1031,7 @@ fn setup_drop_tracker(app: &tauri::AppHandle) {
         #[cfg(not(target_os = "windows"))]
         let held = false;
         // Watchdog anti-stuck: cursore lontano per piu di ~3s -> forza chiusura
-        if cy > 200 && !DROP_DRAGGING.load(Ordering::SeqCst) {
+        if cy > 320 && !DROP_DRAGGING.load(Ordering::SeqCst) {
             far_ticks += 1;
             if far_ticks > 36 {
                 DROP_PINNED.store(false, Ordering::SeqCst);
@@ -1041,7 +1041,10 @@ fn setup_drop_tracker(app: &tauri::AppHandle) {
             far_ticks = 0;
         }
         let pinned = DROP_PINNED.load(Ordering::SeqCst) || DROP_DRAGGING.load(Ordering::SeqCst);
-        let want_visible = cy <= 4 || pinned || (held && cy <= 80);
+        // Zona larga: la goccia resta finché il cursore è nei ~120px in alto
+        // (non solo a 4px), così si fa in tempo a prenderla e trascinarla giù.
+        // La finestra resta click-through tranne sulla pill: nessun click rubato.
+        let want_visible = cy <= 120 || pinned || (held && cy <= 220);
         let is_visible = w.is_visible().unwrap_or(true);
         if want_visible && !is_visible {
             let _ = w.show();
