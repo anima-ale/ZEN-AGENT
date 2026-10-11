@@ -1,0 +1,35 @@
+{
+  "name": "zen-agent",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "ZEN-AGENT - goccia liquid-glass + pannello fluttuante sopra il PC, motore opencode. Sempre attivo, anche a tutto chiuso.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "tauri:build": "tauri build",
+    "build:exe": "scripts\\build-exe.bat",
+    "setup:prereqs": "powershell -ExecutionPolicy Bypass -File scripts/install-prereqs.ps1",
+    "setup:opencode": "powershell -ExecutionPolicy Bypass -File scripts/bootstrap-opencode.ps1",
+    "setup:full": "node scripts/full-setup.mjs",
+    "set-version": "node scripts/set-version.mjs",
+    "set-repo": "node scripts/set-zendate-repo.mjs",
+    "verify": "node scripts/verify.mjs"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.1.0",
+    "@tauri-apps/plugin-dialog": "^2.8.2",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.1.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "typescript": "^5.6.0",
+    "vite": "^6.0.0"
+  }
+}

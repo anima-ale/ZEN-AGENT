@@ -1,0 +1,6 @@
+{
+    "version":  "0.1.0",
+    "notes":  "- Goccia piatta + pannello card in stile NEO 1 (monocromo, oro funzionale, zero vetro tranne input).\n- Bottoni icona SVG, allegati con anteprima, overlay \"Rilascia per allegare\".\n- Motore opencode con modello gratuito piu potente se manca quello del CLI.\n- Riparazione DB opencode in-app (bottone \"ripara ora\" quando serve).\n- Tray, autostart, opencode serve sempre attivo, task pianificati.\n- Aggiornamenti automatici stile ZENdate via GitHub (stable/beta/alpha).",
+    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.1.0/ZEN-AGENT_0.1.0_x64-setup.exe",
+    "sha256":  "6585740dfef4d50cba002f63a3d6adef559e18944b5766dc70ac260740021371"
+}

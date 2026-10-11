@@ -1,0 +1,81 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "ZEN-AGENT",
+  "version": "0.1.0",
+  "identifier": "com.zen.agent",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "drop",
+        "title": "ZEN-AGENT Drop",
+        "url": "index.html?window=drop",
+        "width": 1920,
+        "height": 140,
+        "x": 0,
+        "y": 0,
+        "transparent": true,
+        "decorations": false,
+        "dragDropEnabled": true,
+        "shadow": false,
+        "resizable": false,
+        "fullscreen": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "focusable": true,
+        "visible": true
+      },
+      {
+        "label": "panel",
+        "title": "ZEN-AGENT",
+        "url": "index.html?window=panel",
+        "width": 480,
+        "height": 700,
+        "center": true,
+        "transparent": true,
+        "decorations": false,
+        "dragDropEnabled": true,
+        "shadow": true,
+        "resizable": true,
+        "fullscreen": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": false,
+        "visible": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "category": "Utility",
+    "shortDescription": "ZEN-AGENT — AI agentica sempre attiva con motore opencode",
+    "longDescription": "Goccia liquid-glass dal bordo superiore + finestrella fluttuante nera che blurra lo sfondo. Motore opencode, tray, autostart, setup che scarica tutto e imposta il modello gratuito più potente.",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["Italian", "English"],
+        "displayLanguageSelector": false,
+        "startMenuFolder": "ZEN-AGENT"
+      },
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      }
+    }
+  }
+}
