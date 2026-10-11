@@ -251,11 +251,13 @@ export default function PanelApp() {
   };
 
   const dotClass = !status ? "" : status.opencode && status.serve ? "ok" : status.opencode ? "" : "err";
-  const statusText = !status
-    ? "avvio..."
-    : status.opencode
-      ? `opencode ${status.version} - serve ${status.serve ? "attivo" : "in avvio..."}`
-      : "opencode non trovato - installazione automatica...";
+  const statusText = checking
+    ? "controllo aggiornamenti..."
+    : !status
+      ? "avvio..."
+      : status.opencode
+        ? `opencode ${status.version} - serve ${status.serve ? "attivo" : "in avvio..."}`
+        : "opencode non trovato - installazione automatica...";
 
   return (
     <div id="panel-root">

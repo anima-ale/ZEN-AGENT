@@ -11,24 +11,18 @@ export default function DropApp() {
   const [visible, setVisible] = useState(false);
   const [dragFiles, setDragFiles] = useState(false);
   const [pull, setPull] = useState(0);
-  const hideTimer = useRef<number | undefined>(undefined);
   const dragState = useRef({ dragging: false, startY: 0, opened: false });
 
   const show = useCallback(() => {
     setVisible(true);
-    window.clearTimeout(hideTimer.current);
-    hideTimer.current = window.setTimeout(() => {
-      if (!dragState.current.dragging) {
-        setVisible(false);
-        setDragFiles(false);
-      }
-    }, 3500);
+    api.setDropPinned(true).catch(() => undefined);
   }, []);
 
   const hide = useCallback(() => {
     if (dragState.current.dragging) return;
     setVisible(false);
     setDragFiles(false);
+    api.setDropPinned(false).catch(() => undefined);
   }, []);
 
   const openPanel = useCallback(async () => {
@@ -36,6 +30,8 @@ export default function DropApp() {
     setPull(0);
     setVisible(false);
     setDragFiles(false);
+    api.setDropPinned(false).catch(() => undefined);
+    api.setDropDragging(false).catch(() => undefined);
     try {
       await api.showPanel();
     } catch (e) {
@@ -47,22 +43,26 @@ export default function DropApp() {
   }, []);
 
   useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (e.clientY <= 2) show();
-    };
-    window.addEventListener("mousemove", onMove);
-
-    // Trascini un file in alto al display -> apri Zen e preparalo all'allegato
-    const unlistens: Array<() => void> = [];
+    // Il backend mostra/nasconde la finestrella seguendo il cursore:
+    // qui sincronizziamo solo la pill per l'animazione.
     let alive = true;
+    const unlistens: Array<() => void> = [];
     (async () => {
+      unlistens.push(await listen<boolean>("zen-drop-state", (e) => {
+        if (!alive) return;
+        if (e.payload) show();
+        else {
+          setVisible(false);
+          setDragFiles(false);
+        }
+      }));
+      if (!alive) return;
       unlistens.push(
         await listen<DragPayload>("tauri://drag-enter", async (e) => {
           if (!alive) return;
           if (e.payload.paths && e.payload.paths.length > 0) {
             setDragFiles(true);
-            setVisible(true);
-            window.clearTimeout(hideTimer.current);
+            show();
             try {
               await api.showPanel();
             } catch (err) {
@@ -81,7 +81,6 @@ export default function DropApp() {
         await listen<DragPayload>("tauri://drag-drop", async (e) => {
           if (!alive) return;
           if (e.payload.paths && e.payload.paths.length > 0) {
-            // Rilasciato proprio sulla fascia alta: inoltra al pannello
             try {
               await api.showPanel();
               await notifyPanelFiles(e.payload.paths);
@@ -89,7 +88,7 @@ export default function DropApp() {
               console.error(err);
             }
             setDragFiles(false);
-            setVisible(false);
+            hide();
           }
         }),
       );
@@ -97,23 +96,19 @@ export default function DropApp() {
       unlistens.push(
         await listen("tauri://drag-leave", () => {
           if (!alive) return;
-          window.setTimeout(() => {
-            setDragFiles(false);
-            hide();
-          }, 400);
+          window.setTimeout(() => hide(), 400);
         }),
       );
     })();
     return () => {
       alive = false;
-      window.removeEventListener("mousemove", onMove);
-      window.clearTimeout(hideTimer.current);
       unlistens.forEach((u) => u());
     };
   }, [show, hide]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     dragState.current = { dragging: true, startY: e.clientY, opened: false };
+    api.setDropDragging(true).catch(() => undefined);
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
   };
   const onPointerMove = (e: React.PointerEvent) => {
@@ -122,11 +117,12 @@ export default function DropApp() {
     if (dy > 0) setPull(Math.min(dy, 160));
     if (dy > 70 && !dragState.current.opened) openPanel();
   };
-  const onPointerUp = (e: React.PointerEvent) => {
+  const endDrag = (e: React.PointerEvent, clicked: boolean) => {
     if (!dragState.current.dragging) return;
     const dy = e.clientY - dragState.current.startY;
     dragState.current.dragging = false;
-    if (dy <= 70 && dy > -10 && !dragState.current.opened) openPanel();
+    api.setDropDragging(false).catch(() => undefined);
+    if (clicked && dy <= 70 && dy > -10 && !dragState.current.opened) openPanel();
     else {
       setPull(0);
       hide();
@@ -135,16 +131,17 @@ export default function DropApp() {
 
   return (
     <div id="drop-root">
-      <div id="sensor" title="Zen Agent" onMouseEnter={show} />
       <div id="drop-zone">
         <div
           id="drop"
           className={`${visible ? "visible" : ""} ${dragFiles ? "attach" : ""}`}
-          style={pull > 0 ? { transform: `translateY(${pull}px) scale(1)` } : undefined}
+          style={pull > 0 ? { transform: `translateY(${pull}px)` } : undefined}
           onMouseEnter={show}
+          onMouseLeave={hide}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
+          onPointerUp={(e) => endDrag(e, true)}
+          onPointerCancel={(e) => endDrag(e, false)}
         >
           <span className="dot" />
           <span className="label">{dragFiles ? "RILASCIA PER ALLEGARE" : "ZEN"}</span>
@@ -153,7 +150,7 @@ export default function DropApp() {
       <div id="drop-hint" className={visible ? "visible" : ""}>
         {dragFiles
           ? "Rilascia il file: si allega alla tua domanda"
-          : "Trascina giu per aprire Zen Agent"}
+          : "Trascina giu per aprire ZEN-AGENT"}
       </div>
     </div>
   );

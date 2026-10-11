@@ -1,5 +1,11 @@
 # Changelog ZEN-AGENT
 
+## [0.1.4]
+- Fix lag: il tracker del cursore tocca gli stili finestra solo al cambio + polling 120ms; feedback "controllo..." sul refresh update.
+
+## [0.1.3]
+- La fascia superiore non blocca piu i click: finestrella piccola, click-through tranne sulla pill, anti-stuck.
+
 ## [0.1.2]
 - Riparazione DB affidabile: il serve si mette in pausa durante la riparazione (niente piu race sul lock).
 

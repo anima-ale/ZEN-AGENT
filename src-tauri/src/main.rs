@@ -832,17 +832,135 @@ fn show_panel_window(app: &tauri::AppHandle) {
 }
 
 fn size_drop_to_monitor(app: &tauri::AppHandle) {
+    // Finestra piccola centrata in alto: il resto dello schermo resta cliccabile.
     if let Some(w) = app.get_webview_window("drop") {
         if let Ok(Some(m)) = w.current_monitor() {
-            let size = m.size();
-            // altezza fissa 140, larghezza = larghezza monitor
+            let scale = m.scale_factor();
+            let ww = (280.0 * scale) as u32;
+            let wh = (150.0 * scale) as u32;
+            let sw = m.size().width;
             let _ = w.set_size(tauri::Size::Physical(tauri::PhysicalSize {
-                width: size.width,
-                height: (140.0 * m.scale_factor()) as u32,
+                width: ww,
+                height: wh,
             }));
-            let _ = w.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x: 0, y: 0 }));
+            let _ = w.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+                x: (sw.saturating_sub(ww)) as i32 / 2,
+                y: 0,
+            }));
         }
     }
+}
+
+#[cfg(target_os = "windows")]
+mod winmouse {
+    #[repr(C)]
+    struct Point {
+        x: i32,
+        y: i32,
+    }
+    #[link(name = "user32")]
+    extern "system" {
+        fn GetCursorPos(pt: *mut Point) -> i32;
+        fn GetAsyncKeyState(vkey: i32) -> i16;
+    }
+    pub fn cursor() -> (i32, i32) {
+        let mut p = Point { x: 0, y: 0 };
+        unsafe {
+            GetCursorPos(&mut p);
+        }
+        (p.x, p.y)
+    }
+    pub fn lbutton_held() -> bool {
+        unsafe { (GetAsyncKeyState(0x01) as u16 & 0x8000) != 0 }
+    }
+}
+
+static DROP_PINNED: AtomicBool = AtomicBool::new(false);
+static DROP_DRAGGING: AtomicBool = AtomicBool::new(false);
+
+#[tauri::command]
+fn set_drop_pinned(pinned: bool) {
+    DROP_PINNED.store(pinned, Ordering::SeqCst);
+}
+
+#[tauri::command]
+fn set_drop_dragging(dragging: bool) {
+    DROP_DRAGGING.store(dragging, Ordering::SeqCst);
+}
+
+/// La fascia non intercetta mai i click: la finestra resta nascosta finche
+/// il cursore non sfiora il bordo superiore, e resta click-through ovunque
+/// tranne sulla pill (o durante un trascinamento file).
+fn setup_drop_tracker(app: &tauri::AppHandle) {
+    size_drop_to_monitor(app);
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        let mut far_ticks: u32 = 0;
+        let mut last_ignore: Option<bool> = None;
+        loop {
+        std::thread::sleep(std::time::Duration::from_millis(120));
+        let Some(w) = handle.get_webview_window("drop") else {
+            continue;
+        };
+        #[cfg(target_os = "windows")]
+        let (cx, cy) = winmouse::cursor();
+        #[cfg(not(target_os = "windows"))]
+        let (cx, cy) = (0i32, 9999i32);
+        #[cfg(target_os = "windows")]
+        let held = winmouse::lbutton_held();
+        #[cfg(not(target_os = "windows"))]
+        let held = false;
+        // Watchdog anti-stuck: cursore lontano per piu di ~3s -> forza chiusura
+        if cy > 200 && !DROP_DRAGGING.load(Ordering::SeqCst) {
+            far_ticks += 1;
+            if far_ticks > 36 {
+                DROP_PINNED.store(false, Ordering::SeqCst);
+                far_ticks = 0;
+            }
+        } else {
+            far_ticks = 0;
+        }
+        let pinned = DROP_PINNED.load(Ordering::SeqCst) || DROP_DRAGGING.load(Ordering::SeqCst);
+        let want_visible = cy <= 4 || pinned || (held && cy <= 80);
+        let is_visible = w.is_visible().unwrap_or(true);
+        if want_visible && !is_visible {
+            let _ = w.show();
+            let _ = w.emit("zen-drop-state", true);
+            last_ignore = None;
+        } else if !want_visible && is_visible {
+            let _ = w.hide();
+            let _ = w.emit("zen-drop-state", false);
+            last_ignore = None;
+        }
+        if want_visible {
+            // Coordinate cursore relative alla finestra (pixel fisici)
+            let scale = w.scale_factor().unwrap_or(1.0) as f64;
+            let (wx, wy) = w
+                .outer_position()
+                .map(|p| (p.x as f64, p.y as f64))
+                .unwrap_or((0.0, 0.0));
+            let lx = cx as f64 - wx;
+            let ly = cy as f64 - wy;
+            let ww = 280.0 * scale;
+            let wh = 150.0 * scale;
+            // Rettangolo pill (coerente col CSS: 232x36 a 10px dal top, centrata)
+            let in_pill = lx >= ww / 2.0 - 120.0 * scale
+                && lx <= ww / 2.0 + 120.0 * scale
+                && ly >= 8.0 * scale
+                && ly <= 52.0 * scale;
+            let in_win = lx >= 0.0 && ly >= 0.0 && lx <= ww && ly <= wh;
+            // Interattiva solo sulla pill, o su tutta la finestrella mentre trascini
+            // (drag di file o gesto drag-down): un drag non fa mai click accidentali.
+            let interactive = in_pill || ((held || DROP_DRAGGING.load(Ordering::SeqCst)) && in_win);
+            // Applica il cambio solo quando cambia davvero: toccare gli stili
+            // della finestra a ogni giro forza il ricompositing e lagga il PC.
+            if last_ignore != Some(!interactive) {
+                let _ = w.set_ignore_cursor_events(!interactive);
+                last_ignore = Some(!interactive);
+            }
+        }
+        }
+    });
 }
 
 // ---------- main ----------
@@ -880,7 +998,9 @@ fn main() {
             set_update_channel,
             check_update,
             install_update,
-            repair_opencode_db
+            repair_opencode_db,
+            set_drop_pinned,
+            set_drop_dragging
         ])
         .setup(move |app| {
             // Tray: resta attivo anche a tutto chiuso
@@ -924,7 +1044,7 @@ fn main() {
                 let _ = app.autolaunch().enable();
             }
 
-            size_drop_to_monitor(app.handle());
+            setup_drop_tracker(app.handle());
             ensure_serve_daemon();
             // ripara db + imposta free model in background senza bloccare l'avvio
             std::thread::spawn(|| {

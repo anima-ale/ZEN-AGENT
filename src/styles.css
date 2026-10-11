@@ -70,6 +70,7 @@ button:focus-visible, textarea:focus-visible {
 }
 #drop {
   pointer-events: auto;
+  width: 232px;
   height: 36px;
   padding: 0 14px;
   display: flex;
@@ -105,6 +106,7 @@ button:focus-visible, textarea:focus-visible {
   top: 56px;
   left: 50%;
   transform: translateX(-50%);
+  pointer-events: none;
   font-family: var(--mono);
   font-size: 10px;
   letter-spacing: 0.04em;

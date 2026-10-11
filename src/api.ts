@@ -29,6 +29,8 @@ export interface UpdateProgress {
 export const api = {
   showPanel: () => invoke<void>("show_panel"),
   hidePanel: () => invoke<void>("hide_panel"),
+  setDropPinned: (v: boolean) => invoke<void>("set_drop_pinned", { pinned: v }),
+  setDropDragging: (v: boolean) => invoke<void>("set_drop_dragging", { dragging: v }),
   status: () => invoke<AgentStatus>("agent_status"),
   run: (prompt: string, autoApprove: boolean, files: string[]) =>
     invoke<string>("agent_run", { prompt, autoApprove, files }),
