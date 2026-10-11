@@ -1,0 +1,1 @@
+- Tasto cestino nell'header: elimina definitivamente la chat (messaggi + memoria locale).

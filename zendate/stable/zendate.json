@@ -1,6 +1,6 @@
 {
-    "version":  "0.2.6",
-    "notes":  "- Rimosso del tutto il piano interno: era lui a far chiedere al modello (\"incolla il piano?\") invece di eseguire. Ora una sola esecuzione con la richiesta (via file allegato se enorme).",
-    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.2.6/ZEN-AGENT_0.2.6_x64-setup.exe",
-    "sha256":  "d9764dde32fc1d19d4db65cf860bd5c69932fc9acebe636716debba365a277c9"
+    "version":  "0.2.7",
+    "notes":  "- Tasto cestino nell\u0027header: elimina definitivamente la chat (messaggi + memoria locale).",
+    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.2.7/ZEN-AGENT_0.2.7_x64-setup.exe",
+    "sha256":  "f127907f68b63eb7bb66b84c83f1b773db1461da5d09c92d6045768a001c0a9f"
 }

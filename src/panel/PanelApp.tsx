@@ -133,6 +133,7 @@ const P = {
   clip: "M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48",
   send: "M22 2L11 13 M22 2l-7 20-4-9-9-4 20-7z",
   x: "M18 6L6 18 M6 6l12 12",
+  trash: "M3 6h18 M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6 M10 11v6 M14 11v6",
 };
 
 function loadHistory(): Msg[] {
@@ -440,6 +441,9 @@ export default function PanelApp() {
           </button>
           <button className="icon-btn" title="Impostazioni" onClick={() => setShowSettings((s) => !s)}>
             <Icon d={P.gear} />
+          </button>
+          <button className="icon-btn" title="Elimina definitivamente la chat" onClick={clearHistory}>
+            <Icon d={P.trash} />
           </button>
           <button className="icon-btn" title="Riduci nel rettangolino ZEN" onClick={minimizeUp}>
             <Icon d={P.minus} />

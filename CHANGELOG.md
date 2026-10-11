@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.2.7]
+- Tasto cestino nell'header: elimina definitivamente la chat (messaggi + memoria locale).
+
 ## [0.2.6]
 - Rimosso del tutto il piano interno: era lui a far chiedere al modello ("incolla il piano?") invece di eseguire. Ora una sola esecuzione con la richiesta (via file allegato se enorme).
 
