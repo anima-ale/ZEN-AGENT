@@ -26,12 +26,34 @@ export interface UpdateProgress {
   total: number;
 }
 
+export interface AgentTask {
+  id: string;
+  prompt: string;
+  interval_secs: number;
+  next_run: number;
+  time_daily?: string | null;
+}
+
 export const api = {
   showPanel: () => invoke<void>("show_panel"),
   hidePanel: () => invoke<void>("hide_panel"),
   minimizeToDrop: () => invoke<void>("minimize_to_drop"),
   showGame: () => invoke<void>("show_game"),
   hideGame: () => invoke<void>("hide_game"),
+  showTasks: () => invoke<void>("show_tasks"),
+  hideTasks: () => invoke<void>("hide_tasks"),
+  showSettings: () => invoke<void>("show_settings"),
+  hideSettings: () => invoke<void>("hide_settings"),
+  getAutostart: () => invoke<boolean>("get_autostart"),
+  setAutostart: (enabled: boolean) => invoke<void>("set_autostart", { enabled }),
+  getSound: () => invoke<string>("get_sound"),
+  setSound: (sound: string) => invoke<void>("set_sound", { sound }),
+  notifyReady: () => invoke<void>("notify_response_ready"),
+  clearReady: () => invoke<void>("clear_response_ready"),
+  addTask: (prompt: string, intervalSecs: number, timeDaily?: string | null) =>
+    invoke<AgentTask>("add_task", { prompt, intervalSecs, timeDaily: timeDaily ?? null }),
+  listTasks: () => invoke<AgentTask[]>("list_tasks"),
+  removeTask: (id: string) => invoke<void>("remove_task", { id }),
   setDropPinned: (v: boolean) => invoke<void>("set_drop_pinned", { pinned: v }),
   setDropDragging: (v: boolean) => invoke<void>("set_drop_dragging", { dragging: v }),
   status: () => invoke<AgentStatus>("agent_status"),

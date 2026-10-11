@@ -7,10 +7,43 @@ interface DragPayload {
   position: { x: number; y: number };
 }
 
+// Suoni di notifica sintetizzati via WebAudio (nessun file, NEO1 pulito).
+function playNotify(kind: string) {
+  if (!kind || kind === "off") return;
+  try {
+    const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new AC();
+    const seqs: Record<string, Array<[number, number, number]>> = {
+      ding: [[880, 0, 0.35]],
+      pop: [[520, 0, 0.12], [780, 0.1, 0.18]],
+      chime: [[660, 0, 0.25], [880, 0.18, 0.3], [1320, 0.36, 0.4]],
+    };
+    const seq = seqs[kind] ?? seqs.ding;
+    for (const [freq, at, dur] of seq) {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "sine";
+      o.frequency.value = freq;
+      const t0 = ctx.currentTime + at;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(0.25, t0 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.start(t0);
+      o.stop(t0 + dur + 0.05);
+    }
+    window.setTimeout(() => ctx.close().catch(() => undefined), 2500);
+  } catch {
+    /* niente audio: ignora */
+  }
+}
+
 export default function DropApp() {
   const [visible, setVisible] = useState(false);
   const [dragFiles, setDragFiles] = useState(false);
   const [pull, setPull] = useState(0);
+  const [ready, setReady] = useState(false);
   const dragState = useRef({ dragging: false, startY: 0, opened: false });
   const hideTimer = useRef<number | null>(null);
 
@@ -37,12 +70,16 @@ export default function DropApp() {
 
   // Hide con grazia: sul mouse-leave aspetta 600ms (cancellato al rientro),
   // così la pill non sparisce dopo pochissimi pixel mentre la si raggiunge.
+  // Mai durante una notifica di risposta: resta finché non la apri.
   const hideDelayed = useCallback(() => {
     if (dragState.current.dragging) return;
     cancelHide();
     hideTimer.current = window.setTimeout(() => {
       hideTimer.current = null;
-      hide();
+      setReady((r) => {
+        if (!r) hide();
+        return r;
+      });
     }, 600);
   }, [cancelHide, hide]);
 
@@ -51,8 +88,10 @@ export default function DropApp() {
     setPull(0);
     setVisible(false);
     setDragFiles(false);
+    setReady(false);
     api.setDropPinned(false).catch(() => undefined);
     api.setDropDragging(false).catch(() => undefined);
+    api.clearReady().catch(() => undefined);
     try {
       await api.showPanel();
     } catch (e) {
@@ -76,6 +115,23 @@ export default function DropApp() {
           setVisible(false);
           setDragFiles(false);
         }
+      }));
+      if (!alive) return;
+      // Risposta pronta mentre il pannello era chiuso: la barra scende
+      // col pallino rosso + suono scelto nelle impostazioni.
+      unlistens.push(await listen<string>("zen-response-ready", (e) => {
+        if (!alive) return;
+        cancelHide();
+        setReady(true);
+        setVisible(true);
+        api.setDropPinned(true).catch(() => undefined);
+        playNotify(e.payload || "ding");
+      }));
+      if (!alive) return;
+      // Pannello riaperto: il pallino rosso scompare.
+      unlistens.push(await listen("zen-response-cleared", () => {
+        if (!alive) return;
+        setReady(false);
       }));
       if (!alive) return;
       unlistens.push(
@@ -127,7 +183,7 @@ export default function DropApp() {
       alive = false;
       unlistens.forEach((u) => u());
     };
-  }, [show, hide]);
+  }, [show, hide, cancelHide]);
 
   const onPointerDown = (e: React.PointerEvent) => {
     dragState.current = { dragging: true, startY: e.clientY, opened: false };
@@ -157,7 +213,7 @@ export default function DropApp() {
       <div id="drop-zone">
         <div
           id="drop"
-          className={`${visible ? "visible" : ""} ${dragFiles ? "attach" : ""}`}
+          className={`${visible ? "visible" : ""} ${dragFiles ? "attach" : ""} ${ready ? "notify" : ""}`}
           style={pull > 0 ? { transform: `translateY(${pull}px)` } : undefined}
           onMouseEnter={show}
           onMouseLeave={hideDelayed}
@@ -167,13 +223,16 @@ export default function DropApp() {
           onPointerCancel={(e) => endDrag(e, false)}
         >
           <span className="dot" />
-          <span className="label">{dragFiles ? "RILASCIA PER ALLEGARE" : "ZEN"}</span>
+          <span className="label">{dragFiles ? "RILASCIA PER ALLEGARE" : ready ? "RISPOSTA PRONTA" : "ZEN"}</span>
+          {ready && <span className="red-dot" />}
         </div>
       </div>
       <div id="drop-hint" className={visible ? "visible" : ""}>
         {dragFiles
           ? "Rilascia il file: si allega alla tua domanda"
-          : "Trascina giu per aprire ZEN-AGENT"}
+          : ready
+            ? "ZEN Nebula ti ha risposto: apri per leggere"
+            : "Trascina giu per aprire ZEN-AGENT"}
       </div>
     </div>
   );

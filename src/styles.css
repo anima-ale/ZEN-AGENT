@@ -644,3 +644,184 @@ body[data-graphics="neo"] *:not(.unified-input-wrapper):not(.unified-input-wrapp
 #snake-go:hover { background: var(--gold-hover); border-color: var(--gold-hover); }
 #snake-go:active { transform: scale(0.95); }
 #snake-hint { font-family: var(--mono); font-size: 10px; color: var(--text-faint); letter-spacing: 0.05em; }
+
+/* ============ goccia notifica: scende + pallino rosso ============ */
+#drop.notify { border-color: var(--err); animation: dropNotifyIn 0.3s ease-out; }
+@keyframes dropNotifyIn {
+  from { transform: translateY(-60px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.red-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--err);
+  flex-shrink: 0;
+}
+
+/* ============ chip generici (task/settings) ============ */
+.chan {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-sub);
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.chan:hover { color: var(--text); border-color: var(--border-strong); background: var(--relief); }
+.chan.on { color: var(--gold); border-color: var(--gold); }
+.chan:active { transform: scale(0.95); }
+
+/* ============ tasto orologio accanto agli allegati ============ */
+#tasks-btn {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #a3a3a3;
+  cursor: pointer;
+  padding: 6px 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+#tasks-btn svg { width: 16px; height: 16px; }
+#tasks-btn:hover { color: #fff; background: var(--surface-2); border-color: #2d2d30; }
+#tasks-btn:active { transform: scale(0.95); }
+
+/* ============ finestre ausiliarie NEO1 (task + impostazioni) ============ */
+#aux-root {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 12px;
+  pointer-events: none;
+}
+#aux-card {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 416px;
+  max-height: calc(100vh - 24px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.65);
+  animation: neo1In 0.2s ease-out;
+  -webkit-app-region: drag;
+}
+#aux-card button, #aux-card textarea, #aux-card input, #aux-card label { -webkit-app-region: no-drag; }
+#aux-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  border-radius: 10px 10px 0 0;
+}
+#aux-title {
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text);
+}
+#aux-body {
+  padding: 12px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  user-select: text;
+}
+.aux-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+#task-prompt, #task-every, #task-at {
+  background: #0a0a09;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  caret-color: var(--gold);
+  font-size: 13px;
+  padding: 8px 10px;
+  outline: none;
+}
+#task-prompt { min-height: 64px; resize: vertical; font-family: inherit; }
+#task-prompt::placeholder { color: var(--text-faint); font-style: italic; }
+#task-prompt:focus, #task-every:focus, #task-at:focus { border-color: rgba(232, 176, 75, 0.4); }
+#task-mode { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+#task-when { display: flex; gap: 6px; align-items: center; }
+#task-every { width: 64px; }
+#task-add {
+  background: var(--gold);
+  border: 1px solid var(--gold);
+  color: var(--bg);
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+#task-add:hover { background: var(--gold-hover); border-color: var(--gold-hover); }
+#task-add:active { transform: scale(0.95); }
+#task-add:disabled { background: var(--relief); border-color: var(--border); color: var(--text-faint); cursor: default; }
+#task-msg { font-family: var(--mono); font-size: 10px; color: var(--text-sub); }
+#task-list { display: flex; flex-direction: column; gap: 6px; }
+#task-empty { font-family: var(--mono); font-size: 10px; color: var(--text-faint); }
+.task-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+.task-info { flex: 1; min-width: 0; }
+.task-when {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--gold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.task-prompt {
+  font-size: 12px;
+  color: var(--text-sub);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#task-hint { font-family: var(--mono); font-size: 9px; color: var(--text-faint); letter-spacing: 0.04em; }
+#set-row { display: flex; gap: 6px; flex-wrap: wrap; }
+#set-auto {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-sub);
+  cursor: pointer;
+  user-select: none;
+}
+#set-auto input { accent-color: var(--gold); }

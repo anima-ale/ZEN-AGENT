@@ -4,6 +4,7 @@
 //!   se manca, imposta da solo il modello gratuito più potente)
 //! - Sempre attivo anche a tutto chiuso: tray + autostart + opencode serve daemon
 //! - Fa DA SOLA ciò che gli dice l'utente (task pianificati in background)
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -56,6 +57,9 @@ struct AgentTask {
     prompt: String,
     interval_secs: u64,
     next_run: u64,
+    /// Orario giornaliero "HH:MM" (attività a ora specifica), oppure None = intervallo.
+    #[serde(default)]
+    time_daily: Option<String>,
 }
 
 // ---------- ZENdate: aggiornamenti via GitHub (stile KOA Browser) ----------
@@ -113,6 +117,24 @@ fn stored_channel(app: &tauri::AppHandle) -> String {
         .filter(|s| ["stable", "beta", "alpha"].contains(&s.as_str()))
         .unwrap_or_else(|| ZENDATE_DEFAULT_CHANNEL.to_string())
 }
+
+fn sound_file(app: &tauri::AppHandle) -> PathBuf {
+    app.path()
+        .app_data_dir()
+        .unwrap_or_else(|_| home_dir().join(".zen-agent"))
+        .join("notify-sound.txt")
+}
+
+fn stored_sound(app: &tauri::AppHandle) -> String {
+    std::fs::read_to_string(sound_file(app))
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| ["ding", "pop", "chime", "off"].contains(&s.as_str()))
+        .unwrap_or_else(|| "ding".to_string())
+}
+
+static RESPONSE_PENDING: AtomicBool = AtomicBool::new(false);
+static NOTIFY_PINNED: AtomicBool = AtomicBool::new(false);
 
 fn fetch_manifest(channel: &str) -> Result<UpdateManifest, String> {
     let url = format!("{}{channel}/zendate.json", zendate_base());
@@ -175,6 +197,14 @@ fn tasks_file(app: &tauri::AppHandle) -> PathBuf {
 
 // ---------- helpers opencode ----------
 
+/// Niente terminale in faccia: i processi figli girano nascosti in background.
+#[cfg(target_os = "windows")]
+fn silence(cmd: &mut std::process::Command) {
+    use std::os::windows::process::CommandExt;
+    const NO_WINDOW: u32 = 0x08000000;
+    cmd.creation_flags(NO_WINDOW);
+}
+
 /// EXE reale di opencode, senza passare da cmd.exe.
 /// cmd tratta gli a capo come separatori di comando e taglia i prompt
 /// multilinea alla prima riga (il resto muore lì).
@@ -193,10 +223,12 @@ fn direct_opencode_exe() -> Option<PathBuf> {
         }
     }
     // 2. Primo .exe reale trovato via where
-    if let Ok(out) = std::process::Command::new("cmd")
-        .args(["/C", "where", "opencode"])
-        .output()
-    {
+    if let Ok(out) = {
+        let mut c = std::process::Command::new("cmd");
+        #[cfg(target_os = "windows")]
+        silence(&mut c);
+        c.args(["/C", "where", "opencode"]).output()
+    } {
         let txt = String::from_utf8_lossy(&out.stdout);
         for line in txt.lines() {
             let t = line.trim();
@@ -227,7 +259,10 @@ fn opencode_command() -> std::process::Command {
 }
 
 fn run_opencode_args(args: &[&str], cwd: &str) -> Result<String, String> {
-    let out = opencode_command()
+    let mut cmd = opencode_command();
+    #[cfg(target_os = "windows")]
+    silence(&mut cmd);
+    let out = cmd
         .args(args)
         .current_dir(cwd)
         .output()
@@ -359,6 +394,8 @@ fn ensure_serve_daemon() {
             let mut cmd = opencode_command();
             cmd.args(["serve", "--port", &SERVE_PORT.to_string()]);
             cmd.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+            #[cfg(target_os = "windows")]
+            silence(&mut cmd);
             let _ = cmd.status();
             std::thread::sleep(std::time::Duration::from_secs(5));
         });
@@ -394,6 +431,28 @@ fn now_secs() -> u64 {
         .unwrap_or(0)
 }
 
+fn parse_hm(s: &str) -> Option<(u16, u16)> {
+    let (h, m) = s.split_once(':')?;
+    let h: u16 = h.trim().parse().ok()?;
+    let m: u16 = m.trim().parse().ok()?;
+    if h < 24 && m < 60 {
+        Some((h, m))
+    } else {
+        None
+    }
+}
+
+fn local_hm() -> (u16, u16) {
+    #[cfg(target_os = "windows")]
+    {
+        winmouse::local_hm()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        (0, 0)
+    }
+}
+
 fn spawn_task_scheduler(app: tauri::AppHandle, state: AppState) {
     std::thread::spawn(move || loop {
         std::thread::sleep(std::time::Duration::from_secs(30));
@@ -404,7 +463,17 @@ fn spawn_task_scheduler(app: tauri::AppHandle, state: AppState) {
         let now = now_secs();
         let mut changed = false;
         for t in tasks.iter_mut() {
-            if now >= t.next_run {
+            // Attività a ora specifica: scatta quando l'orologio locale
+            // è su quell'ora+minuto (guardia 23h anti-doppio scatto).
+            let due = match t.time_daily.as_deref().map(str::trim) {
+                Some(hm) if parse_hm(hm).is_some() => {
+                    let (h, m) = parse_hm(hm).unwrap();
+                    let (ch, cm) = local_hm();
+                    ch == h && cm == m && now >= t.next_run
+                }
+                _ => now >= t.next_run,
+            };
+            if due {
                 let cwd = state.cwd.lock().unwrap().clone();
                 let prompt = t.prompt.clone();
                 let res = run_opencode_args(
@@ -424,7 +493,11 @@ fn spawn_task_scheduler(app: tauri::AppHandle, state: AppState) {
                 if res.is_err() {
                     let _ = run_opencode_args(&["run", "--dir", &cwd, &prompt], &cwd);
                 }
-                t.next_run = now + t.interval_secs.max(60);
+                t.next_run = if t.time_daily.is_some() {
+                    now + 82800 // 23h: non riscattare nello stesso minuto
+                } else {
+                    now + t.interval_secs.max(60)
+                };
                 changed = true;
             }
         }
@@ -438,12 +511,124 @@ fn spawn_task_scheduler(app: tauri::AppHandle, state: AppState) {
 
 #[tauri::command]
 fn show_panel(app: tauri::AppHandle) -> Result<(), String> {
+    clear_response_flag(&app);
     if let Some(w) = app.get_webview_window("panel") {
         w.show().map_err(|e| e.to_string())?;
         w.unminimize().map_err(|e| e.to_string())?;
         w.set_focus().map_err(|e| e.to_string())?;
     }
     // nascondi la goccia mentre il pannello è aperto? no, resta il sensore.
+    Ok(())
+}
+
+fn clear_response_flag(app: &tauri::AppHandle) {
+    RESPONSE_PENDING.store(false, Ordering::SeqCst);
+    NOTIFY_PINNED.store(false, Ordering::SeqCst);
+    let _ = app.emit("zen-response-cleared", ());
+}
+
+fn show_aux_window(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
+    if let Some(w) = app.get_webview_window(label) {
+        w.show().map_err(|e| e.to_string())?;
+        w.unminimize().map_err(|e| e.to_string())?;
+        w.set_focus().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+fn hide_aux_window(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
+    if let Some(w) = app.get_webview_window(label) {
+        w.hide().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn show_tasks(app: tauri::AppHandle) -> Result<(), String> {
+    show_aux_window(&app, "tasks")
+}
+
+#[tauri::command]
+fn hide_tasks(app: tauri::AppHandle) -> Result<(), String> {
+    hide_aux_window(&app, "tasks")
+}
+
+#[tauri::command]
+fn show_settings(app: tauri::AppHandle) -> Result<(), String> {
+    show_aux_window(&app, "settings")
+}
+
+#[tauri::command]
+fn hide_settings(app: tauri::AppHandle) -> Result<(), String> {
+    hide_aux_window(&app, "settings")
+}
+
+#[tauri::command]
+fn get_autostart(app: tauri::AppHandle) -> bool {
+    #[cfg(desktop)]
+    {
+        use tauri_plugin_autostart::ManagerExt;
+        app.autolaunch().is_enabled().unwrap_or(true)
+    }
+    #[cfg(not(desktop))]
+    {
+        let _ = &app;
+        true
+    }
+}
+
+#[tauri::command]
+fn set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    #[cfg(desktop)]
+    {
+        use tauri_plugin_autostart::ManagerExt;
+        if enabled {
+            app.autolaunch().enable().map_err(|e| e.to_string())
+        } else {
+            app.autolaunch().disable().map_err(|e| e.to_string())
+        }
+    }
+    #[cfg(not(desktop))]
+    {
+        let _ = (&app, enabled);
+        Ok(())
+    }
+}
+
+#[tauri::command]
+fn get_sound(app: tauri::AppHandle) -> String {
+    stored_sound(&app)
+}
+
+#[tauri::command]
+fn set_sound(app: tauri::AppHandle, sound: String) -> Result<(), String> {
+    if !["ding", "pop", "chime", "off"].contains(&sound.as_str()) {
+        return Err("suono non valido (ding|pop|chime|off)".into());
+    }
+    let f = sound_file(&app);
+    if let Some(parent) = f.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    std::fs::write(&f, &sound).map_err(|e| e.to_string())
+}
+
+/// ZEN Nebula ha risposto mentre il pannello era chiuso: la goccia scende
+/// con pallino rosso + suono (scelto nelle impostazioni).
+#[tauri::command]
+fn notify_response_ready(app: tauri::AppHandle) -> Result<(), String> {
+    RESPONSE_PENDING.store(true, Ordering::SeqCst);
+    NOTIFY_PINNED.store(true, Ordering::SeqCst);
+    if let Some(w) = app.get_webview_window("drop") {
+        let _ = w.show();
+        let _ = w.emit("zen-drop-state", true);
+    }
+    let _ = app.emit("zen-response-ready", stored_sound(&app));
+    Ok(())
+}
+
+#[tauri::command]
+fn clear_response_ready(app: tauri::AppHandle) -> Result<(), String> {
+    clear_response_flag(&app);
     Ok(())
 }
 
@@ -576,7 +761,11 @@ fn minimize_to_drop(app: tauri::AppHandle) -> Result<(), String> {
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_millis(2500));
             // Chiudi solo se l'utente non l'ha pinnato nel frattempo
-            if !DROP_PINNED.load(Ordering::SeqCst) && !DROP_DRAGGING.load(Ordering::SeqCst) {
+            // (e non c'è una notifica di risposta in attesa)
+            if !DROP_PINNED.load(Ordering::SeqCst)
+                && !DROP_DRAGGING.load(Ordering::SeqCst)
+                && !NOTIFY_PINNED.load(Ordering::SeqCst)
+            {
                 if let Some(ww) = handle.get_webview_window("drop") {
                     let _ = ww.emit("zen-drop-state", false);
                 }
@@ -605,9 +794,10 @@ fn ensure_opencode_setup(state: tauri::State<AppState>) -> Result<String, String
         // Prova installazione automatica via npm (Node è prerequisito del setup).
         #[cfg(target_os = "windows")]
         {
-            let _ = std::process::Command::new("cmd")
-                .args(["/C", "npm", "i", "-g", "opencode-ai@latest"])
-                .status();
+            let mut c = std::process::Command::new("cmd");
+            c.args(["/C", "npm", "i", "-g", "opencode-ai@latest"]);
+            silence(&mut c);
+            let _ = c.status();
         }
         #[cfg(not(target_os = "windows"))]
         {
@@ -628,13 +818,24 @@ fn ensure_opencode_setup(state: tauri::State<AppState>) -> Result<String, String
 }
 
 #[tauri::command]
-fn add_task(app: tauri::AppHandle, prompt: String, interval_secs: u64) -> Result<AgentTask, String> {
+fn add_task(
+    app: tauri::AppHandle,
+    prompt: String,
+    interval_secs: u64,
+    time_daily: Option<String>,
+) -> Result<AgentTask, String> {
+    let daily = time_daily
+        .map(|s| s.trim().to_string())
+        .filter(|s| parse_hm(s).is_some());
     let mut tasks = load_tasks(&app);
+    let now = now_secs();
+    let iv = interval_secs.max(60);
     let t = AgentTask {
-        id: format!("task-{}", now_secs()),
+        id: format!("task-{now}"),
         prompt,
-        interval_secs: interval_secs.max(60),
-        next_run: now_secs() + interval_secs.max(60),
+        interval_secs: iv,
+        next_run: if daily.is_some() { 0 } else { now + iv },
+        time_daily: daily,
     };
     tasks.push(t.clone());
     save_tasks(&app, &tasks);
@@ -727,7 +928,7 @@ async fn install_update(
     version: String,
 ) -> Result<String, String> {
     use std::os::windows::process::CommandExt;
-    const DETACHED: u32 = 0x00000008;
+    const HIDDEN: u32 = 0x00000008 | 0x08000000; // DETACHED + NO_WINDOW
 
     if url.trim().is_empty() {
         return Err("URL aggiornamento vuoto (repo ZENdate non ancora configurato)".into());
@@ -795,8 +996,8 @@ async fn install_update(
     );
     std::fs::write(&bat, script).map_err(|e| e.to_string())?;
     std::process::Command::new("cmd")
-        .args(["/C", "start", "", &bat.to_string_lossy()])
-        .creation_flags(DETACHED)
+        .args(["/C", "start", "/MIN", "", &bat.to_string_lossy()])
+        .creation_flags(HIDDEN)
         .spawn()
         .map_err(|e| format!("avvio installer: {e}"))?;
     app.exit(0);
@@ -867,9 +1068,10 @@ fn repair_opencode_db(app: tauri::AppHandle) -> Result<String, String> {
     std::thread::sleep(std::time::Duration::from_secs(1));
     #[cfg(target_os = "windows")]
     {
-        let _ = std::process::Command::new("cmd")
-            .args(["/C", "taskkill", "/F", "/IM", "opencode.exe"])
-            .output();
+        let mut c = std::process::Command::new("cmd");
+        c.args(["/C", "taskkill", "/F", "/IM", "opencode.exe"]);
+        silence(&mut c);
+        let _ = c.output();
     }
     #[cfg(not(target_os = "windows"))]
     {
@@ -899,6 +1101,7 @@ fn repair_opencode_db(app: tauri::AppHandle) -> Result<String, String> {
 // ---------- window helpers ----------
 
 fn show_panel_window(app: &tauri::AppHandle) {
+    clear_response_flag(app);
     if let Some(w) = app.get_webview_window("panel") {
         let _ = w.show();
         let _ = w.unminimize();
@@ -933,10 +1136,25 @@ mod winmouse {
         x: i32,
         y: i32,
     }
+    #[repr(C)]
+    struct SysTime {
+        year: u16,
+        month: u16,
+        dow: u16,
+        day: u16,
+        hour: u16,
+        min: u16,
+        sec: u16,
+        ms: u16,
+    }
     #[link(name = "user32")]
     extern "system" {
         fn GetCursorPos(pt: *mut Point) -> i32;
         fn GetAsyncKeyState(vkey: i32) -> i16;
+    }
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetLocalTime(st: *mut SysTime);
     }
     pub fn cursor() -> (i32, i32) {
         let mut p = Point { x: 0, y: 0 };
@@ -947,6 +1165,16 @@ mod winmouse {
     }
     pub fn lbutton_held() -> bool {
         unsafe { (GetAsyncKeyState(0x01) as u16 & 0x8000) != 0 }
+    }
+    pub fn local_hm() -> (u16, u16) {
+        let mut st = SysTime {
+            year: 0, month: 0, dow: 0, day: 0,
+            hour: 0, min: 0, sec: 0, ms: 0,
+        };
+        unsafe {
+            GetLocalTime(&mut st);
+        }
+        (st.hour, st.min)
     }
 }
 
@@ -986,7 +1214,8 @@ fn setup_drop_tracker(app: &tauri::AppHandle) {
         #[cfg(not(target_os = "windows"))]
         let held = false;
         // Watchdog anti-stuck: cursore lontano per piu di ~3s -> forza chiusura
-        if cy > 320 && !DROP_DRAGGING.load(Ordering::SeqCst) {
+        // (mai durante una notifica di risposta: resta finché non la apri)
+        if cy > 320 && !DROP_DRAGGING.load(Ordering::SeqCst) && !NOTIFY_PINNED.load(Ordering::SeqCst) {
             far_ticks += 1;
             if far_ticks > 36 {
                 DROP_PINNED.store(false, Ordering::SeqCst);
@@ -996,10 +1225,11 @@ fn setup_drop_tracker(app: &tauri::AppHandle) {
             far_ticks = 0;
         }
         let pinned = DROP_PINNED.load(Ordering::SeqCst) || DROP_DRAGGING.load(Ordering::SeqCst);
+        let notify = NOTIFY_PINNED.load(Ordering::SeqCst);
         // Zona larga: la goccia resta finché il cursore è nei ~120px in alto
         // (non solo a 4px), così si fa in tempo a prenderla e trascinarla giù.
         // La finestra resta click-through tranne sulla pill: nessun click rubato.
-        let want_visible = cy <= 120 || pinned || (held && cy <= 220);
+        let want_visible = cy <= 120 || pinned || notify || (held && cy <= 220);
         let is_visible = w.is_visible().unwrap_or(true);
         if want_visible && !is_visible {
             let _ = w.show();
@@ -1066,6 +1296,16 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             show_panel,
             hide_panel,
+            show_tasks,
+            hide_tasks,
+            show_settings,
+            hide_settings,
+            get_autostart,
+            set_autostart,
+            get_sound,
+            set_sound,
+            notify_response_ready,
+            clear_response_ready,
             agent_status,
             agent_run,
             show_game,

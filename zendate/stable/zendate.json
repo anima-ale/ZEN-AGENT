@@ -1,6 +1,6 @@
 {
-    "version":  "0.2.8",
-    "notes":  "- Fix prompt multilinea tagliati alla prima riga: opencode lanciato diretto via exe (niente più cmd.exe che tratta gli a capo come separatori). Shim cmd solo come fallback.",
-    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.2.8/ZEN-AGENT_0.2.8_x64-setup.exe",
-    "sha256":  "cd7e1bb2db668fc26445c4fa1c73e73b6a7e6b24810d792d66e21b4f5d8791cd"
+    "version":  "0.3.0",
+    "notes":  "- Attività programmate: tasto orologio \"attività programmate\" accanto agli allegati, finestra dedicata (ogni X min/ore o ogni giorno alle HH:MM), girano anche a finestra chiusa.\n- Finestra impostazioni dal gear: canale ZENdate, avvio automatico Windows, suono risposta (ding/pop/chime/muto con anteprima).\n- Niente più terminale in faccia: subsystem windows + processi figli nascosti (serve, run, updater).\n- Risposta mentre eri chiuso: la goccia scende con pallino rosso + suono scelto; aprendo ZEN il pallino scompare.",
+    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.3.0/ZEN-AGENT_0.3.0_x64-setup.exe",
+    "sha256":  "57b19e208c0aaec1870af8fbd6c5e8e11a323f17a80325dac052429b621876dd"
 }

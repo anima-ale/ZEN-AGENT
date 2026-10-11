@@ -1,5 +1,11 @@
 # Changelog ZEN-AGENT
 
+## [0.3.0]
+- Attività programmate: tasto orologio "attività programmate" accanto agli allegati, finestra dedicata (ogni X min/ore o ogni giorno alle HH:MM), girano anche a finestra chiusa.
+- Finestra impostazioni dal gear: canale ZENdate, avvio automatico Windows, suono risposta (ding/pop/chime/muto con anteprima).
+- Niente più terminale in faccia: subsystem windows + processi figli nascosti (serve, run, updater).
+- Risposta mentre eri chiuso: la goccia scende con pallino rosso + suono scelto; aprendo ZEN il pallino scompare.
+
 ## [0.2.8]
 - Fix prompt multilinea tagliati alla prima riga: opencode lanciato diretto via exe (niente più cmd.exe che tratta gli a capo come separatori). Shim cmd solo come fallback.
 

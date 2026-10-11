@@ -133,6 +133,7 @@ const P = {
   clip: "M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48",
   send: "M22 2L11 13 M22 2l-7 20-4-9-9-4 20-7z",
   x: "M18 6L6 18 M6 6l12 12",
+  clock: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2",
   trash: "M3 6h18 M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6 M10 11v6 M14 11v6",
 };
 
@@ -183,12 +184,12 @@ export default function PanelApp() {
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
   const [checking, setChecking] = useState(false);
   const [progress, setProgress] = useState<UpdateProgress | null>(null);
-  const [channel, setChannelState] = useState("stable");
-  const [showSettings, setShowSettings] = useState(false);
   const [needsRepair, setNeedsRepair] = useState(false);
   const [repairing, setRepairing] = useState(false);
   const [closing, setClosing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Chiuso nella goccia mentre ZEN Nebula pensava: alla risposta suona la notifica
+  const hiddenWhileBusy = useRef(false);
 
   // persistenza storia
   useEffect(() => {
@@ -243,7 +244,6 @@ export default function PanelApp() {
       setChecking(true);
       try {
         const info = await api.checkUpdate();
-        setChannelState(info.channel);
         if (info.available) {
           setUpdate(info);
           if (!silent) push("system", `aggiornamento disponibile: v${info.latest} (canale ${info.channel})`);
@@ -337,10 +337,14 @@ export default function PanelApp() {
       setMessages((m) => m.map((msg) => (msg.id === id ? { ...msg, text: "Errore: " + err } : msg)));
       if (err.includes("no session table")) setNeedsRepair(true);
     } finally {
-      // risposta arrivata: bottone + finestra snake scompaiono
+      // risposta arrivata: se eri chiuso nella goccia, notifica con suono + pallino
       setBusy(false);
       setBusySecs(0);
       api.hideGame().catch(() => undefined);
+      if (hiddenWhileBusy.current) {
+        hiddenWhileBusy.current = false;
+        api.notifyReady().catch(() => undefined);
+      }
     }
   };
 
@@ -386,20 +390,10 @@ export default function PanelApp() {
     }
   };
 
-  const changeChannel = async (c: string) => {
-    try {
-      await api.setChannel(c);
-      setChannelState(c);
-      setUpdate(null);
-      checkForUpdates(true);
-    } catch (e) {
-      push("system", "cambio canale fallito: " + String(e));
-    }
-  };
-
   // Trattino: la finestra risale contro la parete superiore e diventa il rettangolino ZEN
   const minimizeUp = async () => {
     if (closing) return;
+    if (busy) hiddenWhileBusy.current = true;
     setClosing(true);
     window.setTimeout(() => {
       api.minimizeToDrop().catch(() => api.hidePanel().catch(() => undefined));
@@ -439,7 +433,7 @@ export default function PanelApp() {
           <button className="icon-btn" title="Cerca aggiornamenti" onClick={() => checkForUpdates(false)} disabled={checking}>
             <Icon d={P.refresh} />
           </button>
-          <button className="icon-btn" title="Impostazioni" onClick={() => setShowSettings((s) => !s)}>
+          <button className="icon-btn" title="Impostazioni" onClick={() => api.showSettings().catch(() => undefined)}>
             <Icon d={P.gear} />
           </button>
           <button className="icon-btn" title="Elimina definitivamente la chat" onClick={clearHistory}>
@@ -449,21 +443,6 @@ export default function PanelApp() {
             <Icon d={P.minus} />
           </button>
         </div>
-
-        {showSettings && (
-          <div id="settings-bar">
-            <span>CANALE</span>
-            {(["stable", "beta", "alpha"] as const).map((c) => (
-              <button key={c} className={`chan ${channel === c ? "on" : ""}`} onClick={() => changeChannel(c)}>
-                {c}
-              </button>
-            ))}
-            <button className="chan" title="Pulisci storia chat" onClick={clearHistory}>
-              pulisci
-            </button>
-            <span id="cwd-label" title={status?.cwd ?? ""}>{status?.cwd ?? "..."}</span>
-          </div>
-        )}
 
         <div id="status-bar">
           <span id="status-dot" className={dotClass} />
@@ -564,6 +543,10 @@ export default function PanelApp() {
               <div className="nib-left">
                 <button id="attachment-btn" title="Allega file" onClick={browse}>
                   <Icon d={P.clip} />
+                </button>
+                <button id="tasks-btn" title="Attività programmate" onClick={() => api.showTasks().catch(() => undefined)}>
+                  <Icon d={P.clock} />
+                  <span>attività programmate</span>
                 </button>
                 <label id="auto-label">
                   <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> auto
