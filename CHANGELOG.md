@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.1.1]
+- Prima release distribuita via ZENdate (canale stable): verifica end-to-end del sistema di aggiornamento.
+
 ## [0.1.0]
 - Goccia piatta + pannello card in stile NEO 1 (monocromo, oro funzionale, zero vetro tranne input).
 - Bottoni icona SVG, allegati con anteprima, overlay "Rilascia per allegare".

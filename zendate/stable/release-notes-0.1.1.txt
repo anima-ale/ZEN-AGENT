@@ -1,0 +1,1 @@
+- Prima release distribuita via ZENdate (canale stable): verifica end-to-end del sistema di aggiornamento.
