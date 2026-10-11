@@ -1,6 +1,6 @@
 {
-    "version":  "0.2.0",
-    "notes":  "- Markdown NEO1 + storia chat persistente (localStorage) passata a ZEN Nebula per azioni lunghe/consecutive; planning prima dell\u0027azione.\n- Orb di pensiero in scala di grigi + puntini oro (niente librerie esterne, NEO1 §6); pensieri veri temporanei accanto all\u0027orb, nascosti alla risposta.\n- Bottone snake dopo 20s di pensiero + finestra secondaria Snake NEO1; si chiudono da soli alla risposta.\n- Goccia: hover transiente, scompare subito quando il mouse si allontana (pin solo su drag file).\n- Trattino: chiusura animata verso l\u0027alto che diventa il rettangolino ZEN.\n- UI: mai \"opencode\", solo ZEN Nebula; backend sempre --auto (fa tutto da solo).",
-    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.2.0/ZEN-AGENT_0.2.0_x64-setup.exe",
-    "sha256":  "856d2e857e8ac9ef63a0ccc61814169da6e2754b1ed141e03fafc4cfe81cef37"
+    "version":  "0.2.1",
+    "notes":  "- Fix risposte ZEN Nebula: tolto l\u0027ordine di negare il motore e l\u0027auto-approvazione totale (facevano scattare solo preamboli su identità/conferme). Ora: niente preamboli, dritto al compito; autonomia sul sicuro, conferma solo sul distruttivo/rischioso.",
+    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.2.1/ZEN-AGENT_0.2.1_x64-setup.exe",
+    "sha256":  "983d717ccd49c16e3ecd87fa0ed53feb419ab3ee952a78dd73da4e1c09a0edd3"
 }

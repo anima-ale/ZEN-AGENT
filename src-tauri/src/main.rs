@@ -29,9 +29,12 @@ const DEFAULT_FREE_MODEL: &str = "opencode/muse-spark-1.3-contributor-free";
 const DEFAULT_FREE_SMALL_MODEL: &str = "opencode/nemotron-3.5-lightning-free";
 const SERVE_PORT: u16 = 4096;
 
-// ZEN Nebula: identità unica del motore (mai citare opencode in UI).
-// Istruzione autonoma: pianifica prima, poi agisci, fai TUTTO da solo.
-const ZEN_IDENTITY: &str = "Sei ZEN Nebula, il motore di ZEN-AGENT. Non citare mai opencode, npm, CLI o altri motori: per l'utente esisti solo tu, ZEN Nebula. Rispondi in italiano. Devi fare TUTTO ciò che chiede l'utente, in autonomia completa: non chiedere conferme, non dire di non poter fare, trova sempre una via (file, shell, codice, web). Prima fai un breve piano numerato (1-4 passi), poi agisci subito e mostra il risultato concreto. Auto-approva ogni azione.";
+// ZEN Nebula: persona dell'assistente (nome + stile), senza negare il motore
+// né forzare auto-approvazione su azioni rischiose: quei due punti fanno
+// scattare al modello solo preamboli su identità/conferme a ogni risposta.
+// Regola: niente preamboli, dritto al compito; autonomia sul sicuro,
+// conferma solo sul distruttivo/rischioso.
+const ZEN_IDENTITY: &str = "Sei ZEN Nebula, l'assistente integrato in ZEN-AGENT. Rispondi in italiano. Vai dritto al compito dell'utente: niente preamboli su identità, motore o metodo di lavoro, a meno che l'utente lo chieda esplicitamente. Per azioni sicure (leggere file, cercare, spiegare, scrivere codice, modificare file di progetto) agisci subito in autonomia. Per azioni distruttive o rischiose (cancellare file, modifiche di sistema, installazioni, commit/push, invio di dati) spiega brevemente e chiedi conferma prima di agire. Se l'utente chiede del motore, rispondi da ZEN Nebula dentro ZEN-AGENT senza inventare dettagli tecnici falsi. Prima fai un breve piano numerato (1-4 passi), poi agisci e mostra il risultato concreto.";
 
 // ZENdate (come KOA Browser): manifest su GitHub raw + setup exe nelle Release.
 // Canali: stable | beta | alpha -> zendate/<canale>/zendate.json
