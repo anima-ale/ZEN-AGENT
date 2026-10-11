@@ -20,6 +20,98 @@ interface Msg {
 }
 
 let nextId = 1;
+const HIST_KEY = "zen-agent-history-v1";
+const HIST_MAX = 100;
+
+// ---------- mini-markdown NEO1 (niente dipendenze, solo cornice vestita) ----------
+function esc(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function mdInline(s: string): string {
+  // escape già fatto dal chiamante per il testo, qui solo tag
+  let out = s;
+  out = out.replace(/`([^`\n]+)`/g, "<code class=\"md-code\">$1</code>");
+  out = out.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+  out = out.replace(/(^|\W)\*([^*\n]+)\*/g, "$1<i>$2</i>");
+  out = out.replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, "<a href=\"$2\" target=\"_blank\" rel=\"noreferrer\">$1</a>");
+  return out;
+}
+
+export function renderMarkdown(src: string): string {
+  const lines = esc(src).split("\n");
+  let html = "";
+  let inCode = false;
+  let codeBuf: string[] = [];
+  let inList = false;
+  const closeList = () => {
+    if (inList) {
+      html += "</ul>";
+      inList = false;
+    }
+  };
+  for (const line of lines) {
+    if (line.trim().startsWith("```")) {
+      if (inCode) {
+        html += `<div class="code-block"><div class="code-header">codice</div><pre><code>${codeBuf.join("\n")}</code></pre></div>`;
+        codeBuf = [];
+        inCode = false;
+      } else {
+        closeList();
+        inCode = true;
+      }
+      continue;
+    }
+    if (inCode) {
+      codeBuf.push(line);
+      continue;
+    }
+    const h = line.match(/^(#{1,4})\s+(.*)$/);
+    if (h) {
+      closeList();
+      const lvl = h[1].length;
+      html += `<div class="md-h${lvl}">${mdInline(h[2])}</div>`;
+      continue;
+    }
+    const li = line.match(/^\s*[-*]\s+(.*)$/);
+    if (li) {
+      if (!inList) {
+        html += "<ul class=\"md-ul\">";
+        inList = true;
+      }
+      html += `<li>${mdInline(li[1])}</li>`;
+      continue;
+    }
+    const ol = line.match(/^\s*\d+[.)]\s+(.*)$/);
+    if (ol) {
+      closeList();
+      html += `<div class="md-li">• ${mdInline(ol[1])}</div>`;
+      continue;
+    }
+    if (line.trim() === "") {
+      closeList();
+      html += "<div class=\"md-gap\"></div>";
+      continue;
+    }
+    if (line.trim().startsWith("|") && line.trim().endsWith("|")) {
+      closeList();
+      const cells = line.trim().slice(1, -1).split("|").map((c) => c.trim());
+      if (cells.every((c) => /^:?-{1,}:?$/.test(c) || c === "")) continue;
+      html += `<div class="md-tr">${cells.map((c) => `<span class="md-td">${mdInline(c)}</span>`).join("")}</div>`;
+      continue;
+    }
+    closeList();
+    html += `<div class="md-p">${mdInline(line)}</div>`;
+  }
+  closeList();
+  if (inCode) {
+    html += `<div class="code-block"><pre><code>${codeBuf.join("\n")}</code></pre></div>`;
+  }
+  return html;
+}
 
 interface DragPayload {
   paths: string[];
@@ -43,17 +135,48 @@ const P = {
   x: "M18 6L6 18 M6 6l12 12",
 };
 
+function loadHistory(): Msg[] {
+  try {
+    const raw = localStorage.getItem(HIST_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw) as Msg[];
+    if (!Array.isArray(arr)) return [];
+    nextId = arr.reduce((m, x) => Math.max(m, x.id + 1), 1);
+    return arr.slice(-HIST_MAX);
+  } catch {
+    return [];
+  }
+}
+
+// Orb di pensiero NEO1: scelta "orb" senza librerie esterne (offline-first).
+// Guida §6: loading = testo mono + puntini oro; orb solo in scala di grigi,
+// spinner #333 con cima #888, niente gradienti colorati, niente pulse.
+function ThinkOrb() {
+  return (
+    <span className="think-orb" aria-hidden="true">
+      <span className="think-orb-ring" />
+      <span className="think-orb-core" />
+    </span>
+  );
+}
+
 export default function PanelApp() {
-  const [messages, setMessages] = useState<Msg[]>([
-    {
-      id: 0,
-      who: "system",
-      text: "ZEN-AGENT pronto. Chiedi pure: eseguo con opencode, anche a finestra chiusa. Trascina file qui o sulla fascia in alto per allegarli.",
-    },
-  ]);
+  const [messages, setMessages] = useState<Msg[]>(() => {
+    const h = loadHistory();
+    if (h.length > 0) return h;
+    return [
+      {
+        id: 0,
+        who: "system",
+        text: "ZEN-AGENT pronto con ZEN Nebula. Chiedi pure: pianifico e agisco da solo, anche a finestra chiusa. Trascina file qui o sulla fascia in alto per allegarli.",
+      },
+    ];
+  });
   const [prompt, setPrompt] = useState("");
-  const [auto, setAuto] = useState(false);
+  const [auto, setAuto] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [busySecs, setBusySecs] = useState(0);
+  const [thoughts, setThoughts] = useState<string>("");
   const [files, setFiles] = useState<string[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [status, setStatus] = useState<AgentStatus | null>(null);
@@ -64,11 +187,40 @@ export default function PanelApp() {
   const [showSettings, setShowSettings] = useState(false);
   const [needsRepair, setNeedsRepair] = useState(false);
   const [repairing, setRepairing] = useState(false);
+  const [closing, setClosing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // persistenza storia
+  useEffect(() => {
+    try {
+      localStorage.setItem(HIST_KEY, JSON.stringify(messages.slice(-HIST_MAX)));
+    } catch {
+      /* quota piena: ignora */
+    }
+  }, [messages]);
+
+  // contatore secondi di pensiero (per bottone snake a 20s)
+  useEffect(() => {
+    if (!busy) {
+      setBusySecs(0);
+      return;
+    }
+    setBusySecs(0);
+    const t = window.setInterval(() => setBusySecs((s) => s + 1), 1000);
+    return () => window.clearInterval(t);
+  }, [busy]);
 
   const push = useCallback((who: Msg["who"], text: string) => {
     setMessages((m) => [...m, { id: nextId++, who, text }]);
   }, []);
+
+  const historyForBackend = useCallback((): string[] => {
+    // ultime 12 voci utente/agent come "utente: ..."/"zen: ..."
+    return messages
+      .filter((m) => m.who !== "system")
+      .slice(-12)
+      .map((m) => (m.who === "user" ? `utente: ${m.text}` : `zen: ${m.text}`));
+  }, [messages]);
 
   const addFiles = useCallback(
     (paths: string[]) => {
@@ -173,27 +325,41 @@ export default function PanelApp() {
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [messages]);
+  }, [messages, thoughts, busy]);
 
   const send = async () => {
     const text = prompt.trim();
     if (!text || busy) return;
     setPrompt("");
     setBusy(true);
+    setThoughts("pianifico i passi...");
     const attached = [...files];
     setFiles([]);
+    const hist = historyForBackend();
     push("user", attached.length ? `${text}\n[allegati: ${attached.map(fileName).join(", ")}]` : text);
     const id = nextId++;
     setMessages((m) => [...m, { id, who: "agent", text: "..." }]);
+    // Piano reale in background: i pensieri veri escono accanto all'orb
+    api.plan(text, [...hist, `utente: ${text}`]).then(
+      (p) => {
+        const clean = (p || "").trim();
+        if (clean) setThoughts(clean.slice(0, 800));
+      },
+      () => {},
+    );
     try {
-      const out = await api.run(text, auto, attached);
+      const out = await api.run(text, auto, attached, [...hist, `utente: ${text}`]);
       setMessages((m) => m.map((msg) => (msg.id === id ? { ...msg, text: out || "(nessun output)" } : msg)));
     } catch (e) {
       const err = String(e);
       setMessages((m) => m.map((msg) => (msg.id === id ? { ...msg, text: "Errore: " + err } : msg)));
       if (err.includes("no session table")) setNeedsRepair(true);
     } finally {
+      // risposta arrivata: pensieri + bottone + finestra snake scompaiono
       setBusy(false);
+      setThoughts("");
+      setBusySecs(0);
+      api.hideGame().catch(() => undefined);
     }
   };
 
@@ -250,23 +416,44 @@ export default function PanelApp() {
     }
   };
 
+  // Trattino: la finestra risale contro la parete superiore e diventa il rettangolino ZEN
+  const minimizeUp = async () => {
+    if (closing) return;
+    setClosing(true);
+    window.setTimeout(() => {
+      api.minimizeToDrop().catch(() => api.hidePanel().catch(() => undefined));
+      window.setTimeout(() => setClosing(false), 600);
+    }, 240);
+  };
+
+  const clearHistory = () => {
+    setMessages([
+      { id: nextId++, who: "system", text: "Storia pulita. ZEN Nebula resta pronto." },
+    ]);
+    try {
+      localStorage.removeItem(HIST_KEY);
+    } catch {
+      /* ignora */
+    }
+  };
+
   const dotClass = !status ? "" : status.opencode && status.serve ? "ok" : status.opencode ? "" : "err";
   const statusText = checking
     ? "controllo aggiornamenti..."
     : !status
       ? "avvio..."
       : status.opencode
-        ? `opencode ${status.version} - serve ${status.serve ? "attivo" : "in avvio..."}`
-        : "opencode non trovato - installazione automatica...";
+        ? `ZEN Nebula ${status.version} - ${status.serve ? "attivo" : "in avvio..."}`
+        : "ZEN Nebula non trovato - installazione automatica...";
 
   return (
     <div id="panel-root">
-      <div id="panel">
+      <div id="panel" className={closing ? "panel-closing" : ""}>
         <div id="panel-header">
           <div className="orb">Z</div>
           <div className="titles">
             <b>ZEN-AGENT</b>
-            <span>{status ? `opencode - ${status.model || "modello dal CLI"}` : "avvio motore..."}</span>
+            <span>{status ? `ZEN Nebula - ${status.model || "motore pronto"}` : "avvio motore..."}</span>
           </div>
           <button className="icon-btn" title="Cerca aggiornamenti" onClick={() => checkForUpdates(false)} disabled={checking}>
             <Icon d={P.refresh} />
@@ -274,7 +461,7 @@ export default function PanelApp() {
           <button className="icon-btn" title="Impostazioni" onClick={() => setShowSettings((s) => !s)}>
             <Icon d={P.gear} />
           </button>
-          <button className="icon-btn" title="Nascondi (resta attivo)" onClick={() => api.hidePanel()}>
+          <button className="icon-btn" title="Riduci nel rettangolino ZEN" onClick={minimizeUp}>
             <Icon d={P.minus} />
           </button>
         </div>
@@ -287,6 +474,9 @@ export default function PanelApp() {
                 {c}
               </button>
             ))}
+            <button className="chan" title="Pulisci storia chat" onClick={clearHistory}>
+              pulisci
+            </button>
             <span id="cwd-label" title={status?.cwd ?? ""}>{status?.cwd ?? "..."}</span>
           </div>
         )}
@@ -298,8 +488,8 @@ export default function PanelApp() {
 
         {needsRepair && (
           <div id="repair-bar">
-            <div className="repair-title">Database opencode da riparare</div>
-            <div className="repair-sub">Chiude temporaneamente OpenCode, sposta il DB corrotto in backup e riavvia il serve.</div>
+            <div className="repair-title">Database ZEN Nebula da riparare</div>
+            <div className="repair-sub">Chiude temporaneamente il motore, sposta il DB corrotto in backup e riavvia.</div>
             <button id="repair-go" onClick={doRepair} disabled={repairing}>
               {repairing ? "riparo..." : "ripara ora"}
             </button>
@@ -324,10 +514,35 @@ export default function PanelApp() {
         )}
 
         <div id="messages" ref={scrollRef}>
-          {messages.map((m) => (
-            <div key={m.id} className={`msg ${m.who}`}>{m.text}</div>
-          ))}
+          {messages.map((m) =>
+            m.who === "agent" ? (
+              <div
+                key={m.id}
+                className="msg agent md"
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(m.text) }}
+              />
+            ) : (
+              <div key={m.id} className={`msg ${m.who}`}>{m.text}</div>
+            ),
+          )}
         </div>
+
+        {busy && (
+          <div id="think-bar">
+            <ThinkOrb />
+            <span id="think-text">ZEN Nebula pensa<span className="gold-dots"><span>.</span><span>.</span><span>.</span></span></span>
+            {thoughts && <span id="think-thoughts" title="Pensieri di ZEN Nebula">{thoughts}</span>}
+            {busySecs >= 20 && (
+              <button
+                id="snake-btn"
+                title="Apri Snake mentre aspetti"
+                onClick={() => api.showGame().catch(() => undefined)}
+              >
+                gioca a snake
+              </button>
+            )}
+          </div>
+        )}
 
         {files.length > 0 && (
           <div id="attach-bar">
@@ -353,13 +568,13 @@ export default function PanelApp() {
               id="prompt"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Chiedi a opencode di fare cose sul tuo PC... (Invio = invia)"
+              placeholder="Chiedi a ZEN Nebula di fare cose sul tuo PC... (Invio = invia)"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   send();
                 }
-                if (e.key === "Escape") api.hidePanel();
+                if (e.key === "Escape") minimizeUp();
               }}
             />
             <div className="nib-controls">

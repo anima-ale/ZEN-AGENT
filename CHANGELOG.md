@@ -1,5 +1,13 @@
 # Changelog ZEN-AGENT
 
+## [0.2.0]
+- Markdown NEO1 + storia chat persistente (localStorage) passata a ZEN Nebula per azioni lunghe/consecutive; planning prima dell'azione.
+- Orb di pensiero in scala di grigi + puntini oro (niente librerie esterne, NEO1 §6); pensieri veri temporanei accanto all'orb, nascosti alla risposta.
+- Bottone snake dopo 20s di pensiero + finestra secondaria Snake NEO1; si chiudono da soli alla risposta.
+- Goccia: hover transiente, scompare subito quando il mouse si allontana (pin solo su drag file).
+- Trattino: chiusura animata verso l'alto che diventa il rettangolino ZEN.
+- UI: mai "opencode", solo ZEN Nebula; backend sempre --auto (fa tutto da solo).
+
 ## [0.1.4]
 - Fix lag: il tracker del cursore tocca gli stili finestra solo al cambio + polling 120ms; feedback "controllo..." sul refresh update.
 

@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for the main windows",
-  "windows": ["drop", "panel"],
+  "windows": ["drop", "panel", "game"],
   "permissions": [
     "core:default",
     "core:window:default",

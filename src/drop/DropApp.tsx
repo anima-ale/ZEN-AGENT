@@ -14,8 +14,9 @@ export default function DropApp() {
   const dragState = useRef({ dragging: false, startY: 0, opened: false });
 
   const show = useCallback(() => {
+    // Hover transiente: NON pinna, così quando il mouse si allontana
+    // il tracker backend nasconde subito la finestrella.
     setVisible(true);
-    api.setDropPinned(true).catch(() => undefined);
   }, []);
 
   const hide = useCallback(() => {
@@ -62,6 +63,8 @@ export default function DropApp() {
           if (!alive) return;
           if (e.payload.paths && e.payload.paths.length > 0) {
             setDragFiles(true);
+            // Solo durante un vero trascinamento file pinniamo la goccia
+            api.setDropPinned(true).catch(() => undefined);
             show();
             try {
               await api.showPanel();

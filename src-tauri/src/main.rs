@@ -29,6 +29,10 @@ const DEFAULT_FREE_MODEL: &str = "opencode/muse-spark-1.3-contributor-free";
 const DEFAULT_FREE_SMALL_MODEL: &str = "opencode/nemotron-3.5-lightning-free";
 const SERVE_PORT: u16 = 4096;
 
+// ZEN Nebula: identità unica del motore (mai citare opencode in UI).
+// Istruzione autonoma: pianifica prima, poi agisci, fai TUTTO da solo.
+const ZEN_IDENTITY: &str = "Sei ZEN Nebula, il motore di ZEN-AGENT. Non citare mai opencode, npm, CLI o altri motori: per l'utente esisti solo tu, ZEN Nebula. Rispondi in italiano. Devi fare TUTTO ciò che chiede l'utente, in autonomia completa: non chiedere conferme, non dire di non poter fare, trova sempre una via (file, shell, codice, web). Prima fai un breve piano numerato (1-4 passi), poi agisci subito e mostra il risultato concreto. Auto-approva ogni azione.";
+
 // ZENdate (come KOA Browser): manifest su GitHub raw + setup exe nelle Release.
 // Canali: stable | beta | alpha -> zendate/<canale>/zendate.json
 // Repo dedicato da impostare con: node scripts/set-zendate-repo.mjs <utente> <repo>
@@ -473,19 +477,39 @@ async fn agent_run(
     prompt: String,
     auto_approve: Option<bool>,
     files: Option<Vec<String>>,
+    history: Option<Vec<String>>,
 ) -> Result<String, String> {
     let cwd = state.cwd.lock().unwrap().clone();
     let prompt_owned = prompt.clone();
-    let auto = auto_approve.unwrap_or(false);
+    let _auto_flag = auto_approve.unwrap_or(false);
     let attached = files.unwrap_or_default();
+    let hist = history.unwrap_or_default();
+    // Cronologia recente (ultime 12 voci, troncate) per azioni lunghe/consecutive.
+    let hist_text = hist
+        .iter()
+        .rev()
+        .take(12)
+        .rev()
+        .map(|h| {
+            let t: String = h.chars().take(600).collect();
+            format!("- {t}")
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let full_prompt = if hist_text.is_empty() {
+        format!("{ZEN_IDENTITY}\n\nRichiesta: {prompt_owned}")
+    } else {
+        format!("{ZEN_IDENTITY}\n\nChat passate (contesto):\n{hist_text}\n\nRichiesta: {prompt_owned}")
+    };
     tokio::task::spawn_blocking(move || {
         // Prova prima via serve (veloce, mantiene sessione), poi diretto.
         let attach = format!("http://127.0.0.1:{SERVE_PORT}");
         let mut owned: Vec<String> = vec![];
-        owned.push(prompt_owned);
+        owned.push(full_prompt);
         owned.extend(attached);
         let nprompt = 1usize;
-        // argv: flag fisse + (--file <path>)* + prompt posizionale per ultimo
+        // argv: flag fisse + (--file <path>)* + prompt posizionale per ultimo.
+        // --auto sempre attivo: ZEN Nebula agisce da solo, senza chiedere.
         let build_argv = |with_attach: bool| -> Vec<String> {
             let mut v: Vec<String> = vec!["run".into(), "--format".into(), "default".into()];
             if with_attach {
@@ -494,9 +518,7 @@ async fn agent_run(
             }
             v.push("--dir".into());
             v.push(cwd.clone());
-            if auto {
-                v.push("--auto".into());
-            }
+            v.push("--auto".into());
             for f in owned.iter().skip(nprompt) {
                 v.push("--file".into());
                 v.push(f.clone());
@@ -515,6 +537,101 @@ async fn agent_run(
     })
     .await
     .map_err(|e| format!("task fallito: {e}"))?
+}
+
+/// Piano breve prima dell'azione: restituisce i pensieri veri di ZEN Nebula
+/// (mostrati temporaneamente accanto all'orb, poi nascosti alla risposta).
+#[tauri::command]
+async fn agent_plan(
+    state: tauri::State<'_, AppState>,
+    prompt: String,
+    history: Option<Vec<String>>,
+) -> Result<String, String> {
+    let cwd = state.cwd.lock().unwrap().clone();
+    let hist = history.unwrap_or_default();
+    let hist_text = hist
+        .iter()
+        .rev()
+        .take(8)
+        .rev()
+        .map(|h| {
+            let t: String = h.chars().take(400).collect();
+            format!("- {t}")
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    let plan_prompt = if hist_text.is_empty() {
+        format!("{ZEN_IDENTITY}\n\nFai SOLO un piano numerato in 2-4 passi brevissimi (max 400 caratteri totali, niente esecuzione) per: {prompt}")
+    } else {
+        format!("{ZEN_IDENTITY}\n\nContesto:\n{hist_text}\n\nFai SOLO un piano numerato in 2-4 passi brevissimi (max 400 caratteri totali, niente esecuzione) per: {prompt}")
+    };
+    tokio::task::spawn_blocking(move || {
+        let attach = format!("http://127.0.0.1:{SERVE_PORT}");
+        let build = |with_attach: bool| -> Vec<String> {
+            let mut v: Vec<String> = vec!["run".into(), "--format".into(), "default".into()];
+            if with_attach {
+                v.push("--attach".into());
+                v.push(attach.clone());
+            }
+            v.push("--dir".into());
+            v.push(cwd.clone());
+            v.push("--auto".into());
+            v.push(plan_prompt.clone());
+            v
+        };
+        let run_with = |argv: Vec<String>| -> Result<String, String> {
+            let refs: Vec<&str> = argv.iter().map(|s| s.as_str()).collect();
+            run_opencode_args(&refs, &cwd)
+        };
+        match run_with(build(true)) {
+            Ok(out) => Ok(truncate(&out, 800)),
+            Err(_) => run_with(build(false)).map(|o| truncate(&o, 800)),
+        }
+    })
+    .await
+    .map_err(|e| format!("plan fallito: {e}"))?
+}
+
+#[tauri::command]
+fn show_game(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(w) = app.get_webview_window("game") {
+        w.show().map_err(|e| e.to_string())?;
+        w.unminimize().map_err(|e| e.to_string())?;
+        w.set_focus().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn hide_game(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(w) = app.get_webview_window("game") {
+        w.hide().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Chiudi il pannello animandolo verso l'alto: diventa il rettangolino ZEN.
+/// Nasconde il panel, mostra la drop per ~2.5s come feedback visivo.
+#[tauri::command]
+fn minimize_to_drop(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(p) = app.get_webview_window("panel") {
+        let _ = p.hide();
+    }
+    if let Some(w) = app.get_webview_window("drop") {
+        let _ = w.show();
+        let _ = w.emit("zen-drop-state", true);
+        let handle = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(2500));
+            // Chiudi solo se l'utente non l'ha pinnato nel frattempo
+            if !DROP_PINNED.load(Ordering::SeqCst) && !DROP_DRAGGING.load(Ordering::SeqCst) {
+                if let Some(ww) = handle.get_webview_window("drop") {
+                    let _ = ww.emit("zen-drop-state", false);
+                }
+            }
+        });
+    }
+    Ok(())
 }
 
 fn truncate(s: &str, max: usize) -> String {
@@ -990,6 +1107,10 @@ fn main() {
             hide_panel,
             agent_status,
             agent_run,
+            agent_plan,
+            show_game,
+            hide_game,
+            minimize_to_drop,
             ensure_opencode_setup,
             add_task,
             list_tasks,

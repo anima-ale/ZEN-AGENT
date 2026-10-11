@@ -1,6 +1,6 @@
 {
-    "version":  "0.1.4",
-    "notes":  "- Fix lag: il tracker del cursore tocca gli stili finestra solo al cambio + polling 120ms; feedback \"controllo...\" sul refresh update.",
-    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.1.4/ZEN-AGENT_0.1.4_x64-setup.exe",
-    "sha256":  "ab81ad0344923d4eb5fe3d1780ae3a8e15fa87f2bb46aec428445711f7c88702"
+    "version":  "0.2.0",
+    "notes":  "- Markdown NEO1 + storia chat persistente (localStorage) passata a ZEN Nebula per azioni lunghe/consecutive; planning prima dell\u0027azione.\n- Orb di pensiero in scala di grigi + puntini oro (niente librerie esterne, NEO1 §6); pensieri veri temporanei accanto all\u0027orb, nascosti alla risposta.\n- Bottone snake dopo 20s di pensiero + finestra secondaria Snake NEO1; si chiudono da soli alla risposta.\n- Goccia: hover transiente, scompare subito quando il mouse si allontana (pin solo su drag file).\n- Trattino: chiusura animata verso l\u0027alto che diventa il rettangolino ZEN.\n- UI: mai \"opencode\", solo ZEN Nebula; backend sempre --auto (fa tutto da solo).",
+    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.2.0/ZEN-AGENT_0.2.0_x64-setup.exe",
+    "sha256":  "856d2e857e8ac9ef63a0ccc61814169da6e2754b1ed141e03fafc4cfe81cef37"
 }
