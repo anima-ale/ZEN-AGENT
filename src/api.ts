@@ -35,10 +35,8 @@ export const api = {
   setDropPinned: (v: boolean) => invoke<void>("set_drop_pinned", { pinned: v }),
   setDropDragging: (v: boolean) => invoke<void>("set_drop_dragging", { dragging: v }),
   status: () => invoke<AgentStatus>("agent_status"),
-  run: (prompt: string, autoApprove: boolean, files: string[], history: string[]) =>
-    invoke<string>("agent_run", { prompt, autoApprove, files, history }),
-  plan: (prompt: string, history: string[]) =>
-    invoke<string>("agent_plan", { prompt, history }),
+  run: (prompt: string, autoApprove: boolean, files: string[]) =>
+    invoke<string>("agent_run", { prompt, autoApprove, files }),
   ensureSetup: () => invoke<string>("ensure_opencode_setup"),
   checkUpdate: (channel?: string) =>
     invoke<UpdateInfo>("check_update", channel ? { channel } : {}),

@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.2.4]
+- Niente più contesto chat al modello (solo la richiesta così com'è); piano solo interno al backend per messaggi lunghi (>400 caratteri), mai mostrato all'utente.
+
 ## [0.2.3]
 - Tolto il system prompt ZEN_IDENTITY: il modello riceve di nuovo la richiesta così com'è (più eventuale contesto chat neutro) e dice/fa ciò che vuole, come prima.
 

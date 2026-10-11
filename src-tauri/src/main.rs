@@ -473,41 +473,19 @@ async fn agent_run(
     prompt: String,
     auto_approve: Option<bool>,
     files: Option<Vec<String>>,
-    history: Option<Vec<String>>,
 ) -> Result<String, String> {
     let cwd = state.cwd.lock().unwrap().clone();
     let prompt_owned = prompt.clone();
     let _auto_flag = auto_approve.unwrap_or(false);
     let attached = files.unwrap_or_default();
-    let hist = history.unwrap_or_default();
-    // Contesto neutro dalle chat passate (nessun vincolo sul modello).
-    let hist_text = hist
-        .iter()
-        .rev()
-        .take(12)
-        .rev()
-        .map(|h| {
-            let t: String = h.chars().take(600).collect();
-            format!("- {t}")
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    // Prompt iniziale: la richiesta dell'utente così com'è, senza sermoni.
-    let full_prompt = if hist_text.is_empty() {
-        prompt_owned.clone()
-    } else {
-        format!("Contesto dalle chat precedenti:\n{hist_text}\n\nRichiesta: {prompt_owned}")
-    };
+    // Nessun contesto chat: il modello riceve solo la richiesta così com'è.
     tokio::task::spawn_blocking(move || {
-        // Prova prima via serve (veloce, mantiene sessione), poi diretto.
         let attach = format!("http://127.0.0.1:{SERVE_PORT}");
-        let mut owned: Vec<String> = vec![];
-        owned.push(full_prompt);
-        owned.extend(attached);
-        let nprompt = 1usize;
-        // argv: flag fisse + (--file <path>)* + prompt posizionale per ultimo.
-        // --auto sempre attivo: ZEN Nebula agisce da solo, senza chiedere.
-        let build_argv = |with_attach: bool| -> Vec<String> {
+        let run_with = |argv: Vec<String>| -> Result<String, String> {
+            let refs: Vec<&str> = argv.iter().map(|s| s.as_str()).collect();
+            run_opencode_args(&refs, &cwd)
+        };
+        let build_run = |with_attach: bool, text: &str, files: &[String]| -> Vec<String> {
             let mut v: Vec<String> = vec!["run".into(), "--format".into(), "default".into()];
             if with_attach {
                 v.push("--attach".into());
@@ -516,77 +494,36 @@ async fn agent_run(
             v.push("--dir".into());
             v.push(cwd.clone());
             v.push("--auto".into());
-            for f in owned.iter().skip(nprompt) {
+            for f in files {
                 v.push("--file".into());
                 v.push(f.clone());
             }
-            v.push(owned[0].clone());
+            v.push(text.to_string());
             v
         };
-        let run_with = |argv: Vec<String>| -> Result<String, String> {
-            let refs: Vec<&str> = argv.iter().map(|s| s.as_str()).collect();
-            run_opencode_args(&refs, &cwd)
+        // Messaggi lunghi (>400 caratteri): piano INTERNO mai mostrato
+        // all'utente, poi esecuzione che segue il piano.
+        let final_prompt = if prompt_owned.chars().count() > 400 {
+            let plan_text = format!("Fai SOLO un piano numerato in 2-4 passi brevissimi (max 400 caratteri totali, niente esecuzione) per: {prompt_owned}");
+            let plan = run_with(build_run(true, &plan_text, &[]))
+                .or_else(|_| run_with(build_run(false, &plan_text, &[])))
+                .map(|o| truncate(&o, 800))
+                .unwrap_or_default();
+            if plan.trim().is_empty() {
+                prompt_owned.clone()
+            } else {
+                format!("Piano interno da seguire:\n{plan}\n\nRichiesta: {prompt_owned}")
+            }
+        } else {
+            prompt_owned.clone()
         };
-        match run_with(build_argv(true)) {
+        match run_with(build_run(true, &final_prompt, &attached)) {
             Ok(out) => Ok(truncate(&out, 12000)),
-            Err(_) => run_with(build_argv(false)).map(|o| truncate(&o, 12000)),
+            Err(_) => run_with(build_run(false, &final_prompt, &attached)).map(|o| truncate(&o, 12000)),
         }
     })
     .await
     .map_err(|e| format!("task fallito: {e}"))?
-}
-
-/// Piano breve prima dell'azione: restituisce i pensieri veri di ZEN Nebula
-/// (mostrati temporaneamente accanto all'orb, poi nascosti alla risposta).
-#[tauri::command]
-async fn agent_plan(
-    state: tauri::State<'_, AppState>,
-    prompt: String,
-    history: Option<Vec<String>>,
-) -> Result<String, String> {
-    let cwd = state.cwd.lock().unwrap().clone();
-    let hist = history.unwrap_or_default();
-    let hist_text = hist
-        .iter()
-        .rev()
-        .take(8)
-        .rev()
-        .map(|h| {
-            let t: String = h.chars().take(400).collect();
-            format!("- {t}")
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-    let plan_prompt = if hist_text.is_empty() {
-        format!("Fai SOLO un piano numerato in 2-4 passi brevissimi (max 400 caratteri totali, niente esecuzione) per: {prompt}")
-    } else {
-        format!("Contesto:\n{hist_text}\n\nFai SOLO un piano numerato in 2-4 passi brevissimi (max 400 caratteri totali, niente esecuzione) per: {prompt}")
-    };
-    tokio::task::spawn_blocking(move || {
-        let attach = format!("http://127.0.0.1:{SERVE_PORT}");
-        let build = |with_attach: bool| -> Vec<String> {
-            let mut v: Vec<String> = vec!["run".into(), "--format".into(), "default".into()];
-            if with_attach {
-                v.push("--attach".into());
-                v.push(attach.clone());
-            }
-            v.push("--dir".into());
-            v.push(cwd.clone());
-            v.push("--auto".into());
-            v.push(plan_prompt.clone());
-            v
-        };
-        let run_with = |argv: Vec<String>| -> Result<String, String> {
-            let refs: Vec<&str> = argv.iter().map(|s| s.as_str()).collect();
-            run_opencode_args(&refs, &cwd)
-        };
-        match run_with(build(true)) {
-            Ok(out) => Ok(truncate(&out, 800)),
-            Err(_) => run_with(build(false)).map(|o| truncate(&o, 800)),
-        }
-    })
-    .await
-    .map_err(|e| format!("plan fallito: {e}"))?
 }
 
 #[tauri::command]
@@ -1107,7 +1044,6 @@ fn main() {
             hide_panel,
             agent_status,
             agent_run,
-            agent_plan,
             show_game,
             hide_game,
             minimize_to_drop,

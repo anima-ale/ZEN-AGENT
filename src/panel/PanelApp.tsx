@@ -176,7 +176,6 @@ export default function PanelApp() {
   const [auto, setAuto] = useState(true);
   const [busy, setBusy] = useState(false);
   const [busySecs, setBusySecs] = useState(0);
-  const [thoughts, setThoughts] = useState<string>("");
   const [files, setFiles] = useState<string[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [status, setStatus] = useState<AgentStatus | null>(null);
@@ -213,14 +212,6 @@ export default function PanelApp() {
   const push = useCallback((who: Msg["who"], text: string) => {
     setMessages((m) => [...m, { id: nextId++, who, text }]);
   }, []);
-
-  const historyForBackend = useCallback((): string[] => {
-    // ultime 12 voci utente/agent come "utente: ..."/"zen: ..."
-    return messages
-      .filter((m) => m.who !== "system")
-      .slice(-12)
-      .map((m) => (m.who === "user" ? `utente: ${m.text}` : `zen: ${m.text}`));
-  }, [messages]);
 
   const addFiles = useCallback(
     (paths: string[]) => {
@@ -325,39 +316,28 @@ export default function PanelApp() {
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [messages, thoughts, busy]);
+  }, [messages, busy]);
 
   const send = async () => {
     const text = prompt.trim();
     if (!text || busy) return;
     setPrompt("");
     setBusy(true);
-    setThoughts("pianifico i passi...");
     const attached = [...files];
     setFiles([]);
-    const hist = historyForBackend();
     push("user", attached.length ? `${text}\n[allegati: ${attached.map(fileName).join(", ")}]` : text);
     const id = nextId++;
     setMessages((m) => [...m, { id, who: "agent", text: "..." }]);
-    // Piano reale in background: i pensieri veri escono accanto all'orb
-    api.plan(text, [...hist, `utente: ${text}`]).then(
-      (p) => {
-        const clean = (p || "").trim();
-        if (clean) setThoughts(clean.slice(0, 800));
-      },
-      () => {},
-    );
     try {
-      const out = await api.run(text, auto, attached, [...hist, `utente: ${text}`]);
+      const out = await api.run(text, auto, attached);
       setMessages((m) => m.map((msg) => (msg.id === id ? { ...msg, text: out || "(nessun output)" } : msg)));
     } catch (e) {
       const err = String(e);
       setMessages((m) => m.map((msg) => (msg.id === id ? { ...msg, text: "Errore: " + err } : msg)));
       if (err.includes("no session table")) setNeedsRepair(true);
     } finally {
-      // risposta arrivata: pensieri + bottone + finestra snake scompaiono
+      // risposta arrivata: bottone + finestra snake scompaiono
       setBusy(false);
-      setThoughts("");
       setBusySecs(0);
       api.hideGame().catch(() => undefined);
     }
@@ -531,7 +511,6 @@ export default function PanelApp() {
           <div id="think-bar">
             <ThinkOrb />
             <span id="think-text">ZEN Nebula pensa<span className="gold-dots"><span>.</span><span>.</span><span>.</span></span></span>
-            {thoughts && <span id="think-thoughts" title="Pensieri di ZEN Nebula">{thoughts}</span>}
             {busySecs >= 20 && (
               <button
                 id="snake-btn"

@@ -1,6 +1,6 @@
 {
-    "version":  "0.2.3",
-    "notes":  "- Tolto il system prompt ZEN_IDENTITY: il modello riceve di nuovo la richiesta così com\u0027è (più eventuale contesto chat neutro) e dice/fa ciò che vuole, come prima.",
-    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.2.3/ZEN-AGENT_0.2.3_x64-setup.exe",
-    "sha256":  "5a37c0fc707151ec231c5492ca5aa8f76821167d522255823050093506d75e5e"
+    "version":  "0.2.4",
+    "notes":  "- Niente più contesto chat al modello (solo la richiesta così com\u0027è); piano solo interno al backend per messaggi lunghi (\u003e400 caratteri), mai mostrato all\u0027utente.",
+    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.2.4/ZEN-AGENT_0.2.4_x64-setup.exe",
+    "sha256":  "710fd8d41b77e1aa9c3bfa7ac3dcdb505a035025548e3b8bbd7a00318ba7374f"
 }

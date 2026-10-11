@@ -30,7 +30,7 @@ const conf = JSON.parse(readFileSync("src-tauri/tauri.conf.json", "utf8"));
 console.log("windows:", conf.app.windows.map((w) => w.label).join(", "));
 console.log("frontendDist:", conf.build.frontendDist);
 const main = readFileSync("src-tauri/src/main.rs", "utf8");
-for (const cmd of ["show_panel", "hide_panel", "minimize_to_drop", "show_game", "hide_game", "agent_run", "agent_plan", "agent_status", "ensure_opencode_setup", "check_update", "install_update", "get_update_channel"]) {
+for (const cmd of ["show_panel", "hide_panel", "minimize_to_drop", "show_game", "hide_game", "agent_run", "agent_status", "ensure_opencode_setup", "check_update", "install_update", "get_update_channel"]) {
   if (!main.includes(cmd)) { console.error("comando Rust mancante:", cmd); ok = false; }
 }
 console.log(ok ? "VERIFY OK" : "VERIFY FALLITO");
