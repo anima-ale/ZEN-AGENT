@@ -1,6 +1,6 @@
 {
-    "version":  "0.3.1",
-    "notes":  "- Fix lag + terminale che lampeggia: silenziamento centralizzato in ogni lancio opencode e status in cache 60s (niente più exe da 180MB ogni 8 secondi).",
-    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.3.1/ZEN-AGENT_0.3.1_x64-setup.exe",
-    "sha256":  "097edfa64d0492b539014a73fb79af8f29adb15c0a660ff69f99fd755ff1fcf1"
+    "version":  "0.3.2",
+    "notes":  "- Tolto il bordo fantasma attorno alle finestre: ombra di sistema disattivata (le card mantengono la loro ombra CSS).",
+    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.3.2/ZEN-AGENT_0.3.2_x64-setup.exe",
+    "sha256":  "de73e4e768516dc9a31ac1afecabc9bbb290afa90c59c5cc87f1f168af678055"
 }

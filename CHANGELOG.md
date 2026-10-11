@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.3.2]
+- Tolto il bordo fantasma attorno alle finestre: ombra di sistema disattivata (le card mantengono la loro ombra CSS).
+
 ## [0.3.1]
 - Fix lag + terminale che lampeggia: silenziamento centralizzato in ogni lancio opencode e status in cache 60s (niente più exe da 180MB ogni 8 secondi).
 
