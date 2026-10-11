@@ -242,27 +242,51 @@ fn direct_opencode_exe() -> Option<PathBuf> {
 
 /// Costruisce il comando opencode: diretto all'exe quando possibile
 /// (preserva a capo e caratteri speciali), shim npm via cmd come fallback.
+/// Sempre nascosto: niente console che lampeggia (lo status polla ogni 8s).
 fn opencode_command() -> std::process::Command {
-    if let Some(exe) = direct_opencode_exe() {
-        return std::process::Command::new(exe);
-    }
+    let mut c = match direct_opencode_exe() {
+        Some(exe) => std::process::Command::new(exe),
+        None => fallback_opencode_command(),
+    };
     #[cfg(target_os = "windows")]
+    silence(&mut c);
+    c
+}
+
+#[cfg(target_os = "windows")]
+fn fallback_opencode_command() -> std::process::Command {
+    let mut c = std::process::Command::new("cmd");
+    c.args(["/C", "opencode"]);
+    c
+}
+
+#[cfg(not(target_os = "windows"))]
+fn fallback_opencode_command() -> std::process::Command {
+    std::process::Command::new("opencode")
+}
+
+static STATUS_CACHE: Mutex<(bool, String, u64)> = Mutex::new((false, String::new(), 0));
+
+/// Stato opencode in cache (60s): evita di rilanciare l'exe a ogni poll.
+fn cached_opencode() -> (bool, String) {
+    let now = now_secs();
     {
-        let mut c = std::process::Command::new("cmd");
-        c.args(["/C", "opencode"]);
-        c
+        let c = STATUS_CACHE.lock().unwrap();
+        if now.saturating_sub(c.2) < 60 {
+            return (c.0, c.1.clone());
+        }
     }
-    #[cfg(not(target_os = "windows"))]
+    let inst = opencode_installed();
+    let ver = if inst { opencode_version() } else { String::new() };
     {
-        std::process::Command::new("opencode")
+        let mut c = STATUS_CACHE.lock().unwrap();
+        *c = (inst, ver.clone(), now);
     }
+    (inst, ver)
 }
 
 fn run_opencode_args(args: &[&str], cwd: &str) -> Result<String, String> {
-    let mut cmd = opencode_command();
-    #[cfg(target_os = "windows")]
-    silence(&mut cmd);
-    let out = cmd
+    let out = opencode_command()
         .args(args)
         .current_dir(cwd)
         .output()
@@ -394,8 +418,6 @@ fn ensure_serve_daemon() {
             let mut cmd = opencode_command();
             cmd.args(["serve", "--port", &SERVE_PORT.to_string()]);
             cmd.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
-            #[cfg(target_os = "windows")]
-            silence(&mut cmd);
             let _ = cmd.status();
             std::thread::sleep(std::time::Duration::from_secs(5));
         });
@@ -642,9 +664,10 @@ fn hide_panel(app: tauri::AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 fn agent_status(state: tauri::State<AppState>) -> AgentStatus {
+    let (inst, ver) = cached_opencode();
     AgentStatus {
-        opencode: opencode_installed(),
-        version: opencode_version(),
+        opencode: inst,
+        version: ver,
         serve: serve_alive(),
         model: {
             let m = configured_model();

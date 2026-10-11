@@ -1,6 +1,6 @@
 {
-    "version":  "0.3.0",
-    "notes":  "- Attività programmate: tasto orologio \"attività programmate\" accanto agli allegati, finestra dedicata (ogni X min/ore o ogni giorno alle HH:MM), girano anche a finestra chiusa.\n- Finestra impostazioni dal gear: canale ZENdate, avvio automatico Windows, suono risposta (ding/pop/chime/muto con anteprima).\n- Niente più terminale in faccia: subsystem windows + processi figli nascosti (serve, run, updater).\n- Risposta mentre eri chiuso: la goccia scende con pallino rosso + suono scelto; aprendo ZEN il pallino scompare.",
-    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.3.0/ZEN-AGENT_0.3.0_x64-setup.exe",
-    "sha256":  "57b19e208c0aaec1870af8fbd6c5e8e11a323f17a80325dac052429b621876dd"
+    "version":  "0.3.1",
+    "notes":  "- Fix lag + terminale che lampeggia: silenziamento centralizzato in ogni lancio opencode e status in cache 60s (niente più exe da 180MB ogni 8 secondi).",
+    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.3.1/ZEN-AGENT_0.3.1_x64-setup.exe",
+    "sha256":  "097edfa64d0492b539014a73fb79af8f29adb15c0a660ff69f99fd755ff1fcf1"
 }

@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.3.1]
+- Fix lag + terminale che lampeggia: silenziamento centralizzato in ogni lancio opencode e status in cache 60s (niente più exe da 180MB ogni 8 secondi).
+
 ## [0.3.0]
 - Attività programmate: tasto orologio "attività programmate" accanto agli allegati, finestra dedicata (ogni X min/ore o ogni giorno alle HH:MM), girano anche a finestra chiusa.
 - Finestra impostazioni dal gear: canale ZENdate, avvio automatico Windows, suono risposta (ding/pop/chime/muto con anteprima).
