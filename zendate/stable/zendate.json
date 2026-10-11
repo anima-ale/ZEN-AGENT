@@ -1,6 +1,6 @@
 {
-    "version":  "0.2.7",
-    "notes":  "- Tasto cestino nell\u0027header: elimina definitivamente la chat (messaggi + memoria locale).",
-    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.2.7/ZEN-AGENT_0.2.7_x64-setup.exe",
-    "sha256":  "f127907f68b63eb7bb66b84c83f1b773db1461da5d09c92d6045768a001c0a9f"
+    "version":  "0.2.8",
+    "notes":  "- Fix prompt multilinea tagliati alla prima riga: opencode lanciato diretto via exe (niente più cmd.exe che tratta gli a capo come separatori). Shim cmd solo come fallback.",
+    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.2.8/ZEN-AGENT_0.2.8_x64-setup.exe",
+    "sha256":  "cd7e1bb2db668fc26445c4fa1c73e73b6a7e6b24810d792d66e21b4f5d8791cd"
 }

@@ -175,9 +175,45 @@ fn tasks_file(app: &tauri::AppHandle) -> PathBuf {
 
 // ---------- helpers opencode ----------
 
-/// Costruisce il comando opencode in modo che funzioni anche su Windows
-/// dove opencode è uno shim npm (.cmd).
+/// EXE reale di opencode, senza passare da cmd.exe.
+/// cmd tratta gli a capo come separatori di comando e taglia i prompt
+/// multilinea alla prima riga (il resto muore lì).
+fn direct_opencode_exe() -> Option<PathBuf> {
+    // 1. Posizione standard npm global su Windows:
+    // %APPDATA%\npm\node_modules\opencode-ai\bin\opencode.exe
+    if let Ok(appdata) = std::env::var("APPDATA") {
+        let p = PathBuf::from(appdata)
+            .join("npm")
+            .join("node_modules")
+            .join("opencode-ai")
+            .join("bin")
+            .join("opencode.exe");
+        if p.is_file() {
+            return Some(p);
+        }
+    }
+    // 2. Primo .exe reale trovato via where
+    if let Ok(out) = std::process::Command::new("cmd")
+        .args(["/C", "where", "opencode"])
+        .output()
+    {
+        let txt = String::from_utf8_lossy(&out.stdout);
+        for line in txt.lines() {
+            let t = line.trim();
+            if t.to_lowercase().ends_with(".exe") && PathBuf::from(t).is_file() {
+                return Some(PathBuf::from(t));
+            }
+        }
+    }
+    None
+}
+
+/// Costruisce il comando opencode: diretto all'exe quando possibile
+/// (preserva a capo e caratteri speciali), shim npm via cmd come fallback.
 fn opencode_command() -> std::process::Command {
+    if let Some(exe) = direct_opencode_exe() {
+        return std::process::Command::new(exe);
+    }
     #[cfg(target_os = "windows")]
     {
         let mut c = std::process::Command::new("cmd");
@@ -191,37 +227,17 @@ fn opencode_command() -> std::process::Command {
 }
 
 fn run_opencode_args(args: &[&str], cwd: &str) -> Result<String, String> {
-    #[cfg(target_os = "windows")]
-    {
-        let mut full: Vec<&str> = vec!["/C", "opencode"];
-        full.extend_from_slice(args);
-        let out = std::process::Command::new("cmd")
-            .args(&full)
-            .current_dir(cwd)
-            .output()
-            .map_err(|e| format!("avvio opencode fallito: {e}"))?;
-        let stdout = String::from_utf8_lossy(&out.stdout).to_string();
-        let stderr = String::from_utf8_lossy(&out.stderr).to_string();
-        if out.status.success() {
-            Ok(stdout)
-        } else {
-            Err(format!("opencode errore: {stderr}{stdout}"))
-        }
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        let out = std::process::Command::new("opencode")
-            .args(args)
-            .current_dir(cwd)
-            .output()
-            .map_err(|e| format!("avvio opencode fallito: {e}"))?;
-        let stdout = String::from_utf8_lossy(&out.stdout).to_string();
-        let stderr = String::from_utf8_lossy(&out.stderr).to_string();
-        if out.status.success() {
-            Ok(stdout)
-        } else {
-            Err(format!("opencode errore: {stderr}{stdout}"))
-        }
+    let out = opencode_command()
+        .args(args)
+        .current_dir(cwd)
+        .output()
+        .map_err(|e| format!("avvio opencode fallito: {e}"))?;
+    let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+    if out.status.success() {
+        Ok(stdout)
+    } else {
+        Err(format!("opencode errore: {stderr}{stdout}"))
     }
 }
 
@@ -340,18 +356,8 @@ fn ensure_serve_daemon() {
                 std::thread::sleep(std::time::Duration::from_secs(5));
                 continue;
             }
-            #[cfg(target_os = "windows")]
-            let mut cmd = {
-                let mut c = std::process::Command::new("cmd");
-                c.args(["/C", "opencode", "serve", "--port", &SERVE_PORT.to_string()]);
-                c
-            };
-            #[cfg(not(target_os = "windows"))]
-            let mut cmd = {
-                let mut c = std::process::Command::new("opencode");
-                c.args(["serve", "--port", &SERVE_PORT.to_string()]);
-                c
-            };
+            let mut cmd = opencode_command();
+            cmd.args(["serve", "--port", &SERVE_PORT.to_string()]);
             cmd.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
             let _ = cmd.status();
             std::thread::sleep(std::time::Duration::from_secs(5));

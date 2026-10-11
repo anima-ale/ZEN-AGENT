@@ -1,0 +1,1 @@
+- Fix prompt multilinea tagliati alla prima riga: opencode lanciato diretto via exe (niente più cmd.exe che tratta gli a capo come separatori). Shim cmd solo come fallback.

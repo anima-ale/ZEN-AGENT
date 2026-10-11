@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.2.8]
+- Fix prompt multilinea tagliati alla prima riga: opencode lanciato diretto via exe (niente più cmd.exe che tratta gli a capo come separatori). Shim cmd solo come fallback.
+
 ## [0.2.7]
 - Tasto cestino nell'header: elimina definitivamente la chat (messaggi + memoria locale).
 
