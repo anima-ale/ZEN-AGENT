@@ -1,6 +1,6 @@
 {
-    "version":  "0.2.5",
-    "notes":  "- Fix piano interno vuoto/mozzo sui prompt lunghissimi: testi \u003e6000 caratteri passati via file allegato (limite riga cmd.exe), piano usato solo se ha sostanza (mai titolo senza piano), truncate sicuro sui caratteri multi-byte.",
-    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.2.5/ZEN-AGENT_0.2.5_x64-setup.exe",
-    "sha256":  "0b3a1f64b98fceb35970385b33a0e1d155220c9ebda5978a05d67dd14b4c86a7"
+    "version":  "0.2.6",
+    "notes":  "- Rimosso del tutto il piano interno: era lui a far chiedere al modello (\"incolla il piano?\") invece di eseguire. Ora una sola esecuzione con la richiesta (via file allegato se enorme).",
+    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.2.6/ZEN-AGENT_0.2.6_x64-setup.exe",
+    "sha256":  "d9764dde32fc1d19d4db65cf860bd5c69932fc9acebe636716debba365a277c9"
 }

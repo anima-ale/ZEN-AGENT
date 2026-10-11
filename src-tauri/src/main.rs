@@ -506,50 +506,25 @@ async fn agent_run(
         // Prompt enormi (>6000 caratteri): via file allegato. La riga di
         // comando di cmd.exe ha un limite (~8191 char) e le virgolette nei
         // testi lunghi rompono il parsing: il modello legge il file con --file.
-        let (prompt_text, want_plan) = if prompt_owned.chars().count() > 6000 {
+        let prompt_text: String = if prompt_owned.chars().count() > 6000 {
             let path = std::env::temp_dir().join(format!("zen-prompt-{}.txt", now_secs()));
             match std::fs::write(&path, prompt_owned.as_bytes()) {
                 Ok(_) => {
                     files.push(path.to_string_lossy().to_string());
                     temp_path = Some(path);
-                    (
-                        String::from(
-                            "La richiesta completa è nel file allegato: leggilo integralmente ed eseguilo passo passo.",
-                        ),
-                        true,
+                    String::from(
+                        "La richiesta completa è nel file allegato: leggilo integralmente ed eseguilo passo passo.",
                     )
                 }
-                Err(_) => (prompt_owned.clone(), prompt_owned.chars().count() > 400),
+                Err(_) => prompt_owned.clone(),
             }
         } else {
-            (prompt_owned.clone(), prompt_owned.chars().count() > 400)
+            prompt_owned.clone()
         };
-        // Messaggi lunghi: piano INTERNO mai mostrato all'utente,
-        // poi esecuzione che segue il piano.
-        let final_prompt = if want_plan {
-            let from_file = temp_path.is_some();
-            let plan_instruction = if from_file {
-                String::from("Leggi integralmente il file allegato con la richiesta e fai SOLO un piano numerato in 2-4 passi brevissimi (max 400 caratteri totali, niente esecuzione).")
-            } else {
-                format!("Fai SOLO un piano numerato in 2-4 passi brevissimi (max 400 caratteri totali, niente esecuzione) per: {prompt_owned}")
-            };
-            let plan_files: Vec<String> = if from_file { files.clone() } else { vec![] };
-            let plan = run_with(build_run(true, &plan_instruction, &plan_files))
-                .or_else(|_| run_with(build_run(false, &plan_instruction, &plan_files)))
-                .map(|o| truncate(&o, 800))
-                .unwrap_or_default();
-            // Il piano va usato solo se ha sostanza (almeno 2 righe non vuote
-            // e 40 caratteri): mai mostrare al modello un titolo senza piano.
-            let useful = plan.trim().len() >= 40
-                && plan.lines().filter(|l| !l.trim().is_empty()).count() >= 2;
-            if useful {
-                format!("Piano interno da seguire:\n{plan}\n\n{prompt_text}")
-            } else {
-                prompt_text
-            }
-        } else {
-            prompt_text
-        };
+        // Messaggi lunghi: NESSUN piano intermedio. Il modello pianifica già
+        // da solo nel suo loop agente; ogni header in più diventa solo un
+        // pretesto per chiedere all'utente invece di eseguire.
+        let final_prompt = prompt_text;
         let out = match run_with(build_run(true, &final_prompt, &files)) {
             Ok(out) => Ok(truncate(&out, 12000)),
             Err(_) => run_with(build_run(false, &final_prompt, &files)).map(|o| truncate(&o, 12000)),

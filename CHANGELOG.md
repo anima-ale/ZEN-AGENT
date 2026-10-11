@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.2.6]
+- Rimosso del tutto il piano interno: era lui a far chiedere al modello ("incolla il piano?") invece di eseguire. Ora una sola esecuzione con la richiesta (via file allegato se enorme).
+
 ## [0.2.5]
 - Fix piano interno vuoto/mozzo sui prompt lunghissimi: testi >6000 caratteri passati via file allegato (limite riga cmd.exe), piano usato solo se ha sostanza (mai titolo senza piano), truncate sicuro sui caratteri multi-byte.
 
