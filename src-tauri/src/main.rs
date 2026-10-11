@@ -29,13 +29,6 @@ const DEFAULT_FREE_MODEL: &str = "opencode/muse-spark-1.3-contributor-free";
 const DEFAULT_FREE_SMALL_MODEL: &str = "opencode/nemotron-3.5-lightning-free";
 const SERVE_PORT: u16 = 4096;
 
-// ZEN Nebula: persona dell'assistente (nome + stile), senza negare il motore
-// né forzare auto-approvazione su azioni rischiose: quei due punti fanno
-// scattare al modello solo preamboli su identità/conferme a ogni risposta.
-// Regola: niente preamboli, dritto al compito; autonomia sul sicuro,
-// conferma solo sul distruttivo/rischioso.
-const ZEN_IDENTITY: &str = "Sei ZEN Nebula, l'assistente integrato in ZEN-AGENT. Rispondi in italiano. Vai dritto al compito dell'utente: niente preamboli su identità, motore o metodo di lavoro, a meno che l'utente lo chieda esplicitamente. Per azioni sicure (leggere file, cercare, spiegare, scrivere codice, modificare file di progetto) agisci subito in autonomia. Per azioni distruttive o rischiose (cancellare file, modifiche di sistema, installazioni, commit/push, invio di dati) spiega brevemente e chiedi conferma prima di agire. Se l'utente chiede del motore, rispondi da ZEN Nebula dentro ZEN-AGENT senza inventare dettagli tecnici falsi. Prima fai un breve piano numerato (1-4 passi), poi agisci e mostra il risultato concreto.";
-
 // ZENdate (come KOA Browser): manifest su GitHub raw + setup exe nelle Release.
 // Canali: stable | beta | alpha -> zendate/<canale>/zendate.json
 // Repo dedicato da impostare con: node scripts/set-zendate-repo.mjs <utente> <repo>
@@ -487,7 +480,7 @@ async fn agent_run(
     let _auto_flag = auto_approve.unwrap_or(false);
     let attached = files.unwrap_or_default();
     let hist = history.unwrap_or_default();
-    // Cronologia recente (ultime 12 voci, troncate) per azioni lunghe/consecutive.
+    // Contesto neutro dalle chat passate (nessun vincolo sul modello).
     let hist_text = hist
         .iter()
         .rev()
@@ -499,10 +492,11 @@ async fn agent_run(
         })
         .collect::<Vec<_>>()
         .join("\n");
+    // Prompt iniziale: la richiesta dell'utente così com'è, senza sermoni.
     let full_prompt = if hist_text.is_empty() {
-        format!("{ZEN_IDENTITY}\n\nRichiesta: {prompt_owned}")
+        prompt_owned.clone()
     } else {
-        format!("{ZEN_IDENTITY}\n\nChat passate (contesto):\n{hist_text}\n\nRichiesta: {prompt_owned}")
+        format!("Contesto dalle chat precedenti:\n{hist_text}\n\nRichiesta: {prompt_owned}")
     };
     tokio::task::spawn_blocking(move || {
         // Prova prima via serve (veloce, mantiene sessione), poi diretto.
@@ -564,9 +558,9 @@ async fn agent_plan(
         .collect::<Vec<_>>()
         .join("\n");
     let plan_prompt = if hist_text.is_empty() {
-        format!("{ZEN_IDENTITY}\n\nFai SOLO un piano numerato in 2-4 passi brevissimi (max 400 caratteri totali, niente esecuzione) per: {prompt}")
+        format!("Fai SOLO un piano numerato in 2-4 passi brevissimi (max 400 caratteri totali, niente esecuzione) per: {prompt}")
     } else {
-        format!("{ZEN_IDENTITY}\n\nContesto:\n{hist_text}\n\nFai SOLO un piano numerato in 2-4 passi brevissimi (max 400 caratteri totali, niente esecuzione) per: {prompt}")
+        format!("Contesto:\n{hist_text}\n\nFai SOLO un piano numerato in 2-4 passi brevissimi (max 400 caratteri totali, niente esecuzione) per: {prompt}")
     };
     tokio::task::spawn_blocking(move || {
         let attach = format!("http://127.0.0.1:{SERVE_PORT}");

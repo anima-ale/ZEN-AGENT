@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.2.3]
+- Tolto il system prompt ZEN_IDENTITY: il modello riceve di nuovo la richiesta così com'è (più eventuale contesto chat neutro) e dice/fa ciò che vuole, come prima.
+
 ## [0.2.2]
 - Goccia: zona di permanenza allargata a ~120px dal bordo (prima spariva dopo pochissimi pixel) + hide con grazia 600ms; trascinamento giù ora fattibile. Click-through invariato fuori dalla pill.
 

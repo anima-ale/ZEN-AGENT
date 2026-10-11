@@ -1,6 +1,6 @@
 {
-    "version":  "0.2.2",
-    "notes":  "- Goccia: zona di permanenza allargata a ~120px dal bordo (prima spariva dopo pochissimi pixel) + hide con grazia 600ms; trascinamento giù ora fattibile. Click-through invariato fuori dalla pill.",
-    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.2.2/ZEN-AGENT_0.2.2_x64-setup.exe",
-    "sha256":  "48e1ae00955be671ebf5316c04cb3a8fab8ea15d244995123ae5aa5011c2182d"
+    "version":  "0.2.3",
+    "notes":  "- Tolto il system prompt ZEN_IDENTITY: il modello riceve di nuovo la richiesta così com\u0027è (più eventuale contesto chat neutro) e dice/fa ciò che vuole, come prima.",
+    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.2.3/ZEN-AGENT_0.2.3_x64-setup.exe",
+    "sha256":  "5a37c0fc707151ec231c5492ca5aa8f76821167d522255823050093506d75e5e"
 }
