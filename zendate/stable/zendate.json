@@ -1,6 +1,6 @@
 {
-    "version":  "0.2.4",
-    "notes":  "- Niente più contesto chat al modello (solo la richiesta così com\u0027è); piano solo interno al backend per messaggi lunghi (\u003e400 caratteri), mai mostrato all\u0027utente.",
-    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.2.4/ZEN-AGENT_0.2.4_x64-setup.exe",
-    "sha256":  "710fd8d41b77e1aa9c3bfa7ac3dcdb505a035025548e3b8bbd7a00318ba7374f"
+    "version":  "0.2.5",
+    "notes":  "- Fix piano interno vuoto/mozzo sui prompt lunghissimi: testi \u003e6000 caratteri passati via file allegato (limite riga cmd.exe), piano usato solo se ha sostanza (mai titolo senza piano), truncate sicuro sui caratteri multi-byte.",
+    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.2.5/ZEN-AGENT_0.2.5_x64-setup.exe",
+    "sha256":  "0b3a1f64b98fceb35970385b33a0e1d155220c9ebda5978a05d67dd14b4c86a7"
 }

@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.2.5]
+- Fix piano interno vuoto/mozzo sui prompt lunghissimi: testi >6000 caratteri passati via file allegato (limite riga cmd.exe), piano usato solo se ha sostanza (mai titolo senza piano), truncate sicuro sui caratteri multi-byte.
+
 ## [0.2.4]
 - Niente più contesto chat al modello (solo la richiesta così com'è); piano solo interno al backend per messaggi lunghi (>400 caratteri), mai mostrato all'utente.
 

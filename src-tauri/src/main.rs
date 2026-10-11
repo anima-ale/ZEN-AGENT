@@ -501,26 +501,63 @@ async fn agent_run(
             v.push(text.to_string());
             v
         };
-        // Messaggi lunghi (>400 caratteri): piano INTERNO mai mostrato
-        // all'utente, poi esecuzione che segue il piano.
-        let final_prompt = if prompt_owned.chars().count() > 400 {
-            let plan_text = format!("Fai SOLO un piano numerato in 2-4 passi brevissimi (max 400 caratteri totali, niente esecuzione) per: {prompt_owned}");
-            let plan = run_with(build_run(true, &plan_text, &[]))
-                .or_else(|_| run_with(build_run(false, &plan_text, &[])))
-                .map(|o| truncate(&o, 800))
-                .unwrap_or_default();
-            if plan.trim().is_empty() {
-                prompt_owned.clone()
-            } else {
-                format!("Piano interno da seguire:\n{plan}\n\nRichiesta: {prompt_owned}")
+        let mut files = attached.clone();
+        let mut temp_path: Option<std::path::PathBuf> = None;
+        // Prompt enormi (>6000 caratteri): via file allegato. La riga di
+        // comando di cmd.exe ha un limite (~8191 char) e le virgolette nei
+        // testi lunghi rompono il parsing: il modello legge il file con --file.
+        let (prompt_text, want_plan) = if prompt_owned.chars().count() > 6000 {
+            let path = std::env::temp_dir().join(format!("zen-prompt-{}.txt", now_secs()));
+            match std::fs::write(&path, prompt_owned.as_bytes()) {
+                Ok(_) => {
+                    files.push(path.to_string_lossy().to_string());
+                    temp_path = Some(path);
+                    (
+                        String::from(
+                            "La richiesta completa è nel file allegato: leggilo integralmente ed eseguilo passo passo.",
+                        ),
+                        true,
+                    )
+                }
+                Err(_) => (prompt_owned.clone(), prompt_owned.chars().count() > 400),
             }
         } else {
-            prompt_owned.clone()
+            (prompt_owned.clone(), prompt_owned.chars().count() > 400)
         };
-        match run_with(build_run(true, &final_prompt, &attached)) {
+        // Messaggi lunghi: piano INTERNO mai mostrato all'utente,
+        // poi esecuzione che segue il piano.
+        let final_prompt = if want_plan {
+            let from_file = temp_path.is_some();
+            let plan_instruction = if from_file {
+                String::from("Leggi integralmente il file allegato con la richiesta e fai SOLO un piano numerato in 2-4 passi brevissimi (max 400 caratteri totali, niente esecuzione).")
+            } else {
+                format!("Fai SOLO un piano numerato in 2-4 passi brevissimi (max 400 caratteri totali, niente esecuzione) per: {prompt_owned}")
+            };
+            let plan_files: Vec<String> = if from_file { files.clone() } else { vec![] };
+            let plan = run_with(build_run(true, &plan_instruction, &plan_files))
+                .or_else(|_| run_with(build_run(false, &plan_instruction, &plan_files)))
+                .map(|o| truncate(&o, 800))
+                .unwrap_or_default();
+            // Il piano va usato solo se ha sostanza (almeno 2 righe non vuote
+            // e 40 caratteri): mai mostrare al modello un titolo senza piano.
+            let useful = plan.trim().len() >= 40
+                && plan.lines().filter(|l| !l.trim().is_empty()).count() >= 2;
+            if useful {
+                format!("Piano interno da seguire:\n{plan}\n\n{prompt_text}")
+            } else {
+                prompt_text
+            }
+        } else {
+            prompt_text
+        };
+        let out = match run_with(build_run(true, &final_prompt, &files)) {
             Ok(out) => Ok(truncate(&out, 12000)),
-            Err(_) => run_with(build_run(false, &final_prompt, &attached)).map(|o| truncate(&o, 12000)),
+            Err(_) => run_with(build_run(false, &final_prompt, &files)).map(|o| truncate(&o, 12000)),
+        };
+        if let Some(p) = temp_path {
+            let _ = std::fs::remove_file(&p);
         }
+        out
     })
     .await
     .map_err(|e| format!("task fallito: {e}"))?
@@ -572,7 +609,13 @@ fn truncate(s: &str, max: usize) -> String {
     if s.len() <= max {
         return s.to_string();
     }
-    format!("{}…\n[output troncato, {} caratteri totali]", &s[..max], s.len())
+    // Taglio su boundary di carattere: i byte multi-byte (à, è, emoji)
+    // altrimenti fanno panico con &s[..max].
+    let mut end = max.min(s.len());
+    while end > 0 && !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    format!("{}…\n[output troncato, {} caratteri totali]", &s[..end], s.len())
 }
 
 #[tauri::command]
