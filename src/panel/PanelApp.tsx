@@ -107,6 +107,12 @@ export function renderMarkdown(src: string): string {
       html += `<div class="md-start">${mdInline(line)}</div>`;
       continue;
     }
+    // Riepilogo finale: una riga sobria
+    if (line.startsWith("✓ ")) {
+      closeList();
+      html += `<div class="md-done">${mdInline(line)}</div>`;
+      continue;
+    }
     if (line.trim().startsWith("|") && line.trim().endsWith("|")) {
       closeList();
       const cells = line.trim().slice(1, -1).split("|").map((c) => c.trim());
@@ -370,7 +376,19 @@ export default function PanelApp() {
       const out = await api.run(promptText, auto, attached);
       const finalText = out || "(nessun output)";
       setMessages((m) =>
-        m.map((msg) => (msg.id === id ? { ...msg, text: msg.text ? `${msg.text}\n${finalText}` : finalText } : msg)),
+        m.map((msg) => {
+          if (msg.id !== id) return msg;
+          // A lavoro finito le righe live spariscono: resta una riga
+          // di riepilogo + la risposta pulita, niente passaggi.
+          const lines = msg.text.split("\n");
+          const nActs = lines.filter((l) => l.startsWith('OK "')).length;
+          const kept = lines.filter((l) => {
+            const t = l.trim();
+            return t !== "" && !t.startsWith("▶ ") && !t.startsWith('OK "');
+          });
+          const head = nActs > 0 ? [`✓ fatto (${nActs} attività)`] : [];
+          return { ...msg, text: [...kept, ...head, finalText].join("\n") };
+        }),
       );
       return finalText;
     } catch (e) {

@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.4.15]
+- Risposte pulitissime: le righe OK oro restano solo live e spariscono alla fine (resta una riga sobria "✓ fatto (N attività)" + esito secco). Dettagli tecnici nascosti (niente codice nelle righe), regola finale più dura con italiano obbligatorio.
+
 ## [0.4.14]
 - Fix scroll vero nelle finestre ausiliarie: il drag della finestra resta solo sull'intestazione, il corpo scorre libero fino in fondo con rotella e barra.
 

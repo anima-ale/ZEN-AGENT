@@ -578,6 +578,13 @@ body[data-graphics="neo"] *:not(.unified-input-wrapper):not(.unified-input-wrapp
   font-size: 0.85em;
   letter-spacing: 0.02em;
 }
+.msg.agent.md .md-done {
+  margin: 2px 0 6px;
+  color: var(--text-sub);
+  font-family: var(--mono);
+  font-size: 0.8em;
+  letter-spacing: 0.02em;
+}
 .msg.agent.md .md-h1 { font-size: 1.05rem; font-weight: 700; margin: 8px 0 6px; color: var(--text); }
 .msg.agent.md .md-h2 { font-size: 0.98rem; font-weight: 700; margin: 8px 0 6px; color: var(--text); }
 .msg.agent.md .md-h3, .msg.agent.md .md-h4 { font-size: 0.92rem; font-weight: 700; margin: 6px 0 4px; color: var(--text); }

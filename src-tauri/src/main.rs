@@ -1275,14 +1275,63 @@ fn agent_status(state: tauri::State<AppState>) -> AgentStatus {
     }
 }
 
-/// Dettaglio breve per la riga OK: primo campo utile dell'input tool.
+/// Taglio secco senza suffissi (per le righe live).
+fn shorten(s: &str, max: usize) -> String {
+    let t = s.trim();
+    if t.chars().count() <= max {
+        return t.to_string();
+    }
+    let mut out = String::new();
+    for (i, ch) in t.chars().enumerate() {
+        if i >= max {
+            break;
+        }
+        out.push(ch);
+    }
+    out + "…"
+}
+
+/// Verbo amichevole per tool (niente gergo interno).
+fn tool_verb(tool: &str) -> &str {
+    match tool {
+        "read" => "lettura",
+        "write" => "scrittura",
+        "edit" => "modifica",
+        "bash" => "comando",
+        "grep" => "ricerca",
+        "glob" => "ricerca file",
+        "webfetch" => "web",
+        "websearch" => "ricerca web",
+        "task" => "sotto-attività",
+        "todowrite" | "todo" => "piano",
+        _ => tool,
+    }
+}
+
+/// Dettaglio breve e pulito: solo nomi file o comandi corti,
+/// mai codice né output troncati in vista.
 fn tool_detail(input: &serde_json::Value) -> String {
-    for k in ["filePath", "command", "pattern", "query", "prompt", "url", "path", "message"] {
+    if let Some(s) = input.get("filePath").and_then(|v| v.as_str()) {
+        let t = s.trim();
+        if !t.is_empty() {
+            return t.rsplit(['/', '\\']).next().unwrap_or(t).to_string();
+        }
+    }
+    if let Some(s) = input.get("command").and_then(|v| v.as_str()) {
+        let t = s.trim().replace('\n', " ");
+        if t.is_empty() {
+            return String::new();
+        }
+        let symbols = t.chars().filter(|c| "(){};[]$\"'".contains(*c)).count();
+        if t.chars().count() <= 48 && symbols <= 2 {
+            return t;
+        }
+        return String::from("comando di sistema");
+    }
+    for k in ["pattern", "query", "prompt", "url", "path", "message"] {
         if let Some(s) = input.get(k).and_then(|v| v.as_str()) {
-            let t = s.trim().replace('\n', " ");
-            if !t.is_empty() {
-                let short = t.rsplit(['/', '\\']).next().unwrap_or(&t).to_string();
-                return truncate(&short, 80);
+            if !s.trim().is_empty() {
+                return shorten(s, 60);
             }
         }
     }
@@ -1361,12 +1410,12 @@ fn run_streamed(
                         .map(tool_detail)
                         .unwrap_or_default();
                     let line = if det.is_empty() {
-                        format!("OK \"ATTIVITÀ {acts}\" COMPLETATA — {tool}")
+                        format!("OK \"ATTIVITÀ {acts}\" COMPLETATA — {}", tool_verb(tool))
                     } else {
-                        format!("OK \"ATTIVITÀ {acts}\" COMPLETATA — {tool}: {det}")
+                        format!("OK \"ATTIVITÀ {acts}\" COMPLETATA — {}: {det}", tool_verb(tool))
                     };
                     let _ = app.emit("zen-run-progress", line);
-                    let _ = app.emit("zen-thinking", format!("{tool} fatto, continuo…"));
+                    let _ = app.emit("zen-thinking", format!("{} fatto, continuo…", tool_verb(tool)));
                 }
             }
             "text" => {
