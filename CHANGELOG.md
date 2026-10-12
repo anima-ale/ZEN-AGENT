@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.4.16]
+- Allegati riparati: il `--file` va dopo il prompt (prima il motore cercava il prompt come file). Path sempre assoluti, controllo esistenza con messaggio chiaro, immagini oltre 10 MB compresse da sole, stop alle HEIC illeggibili.
+
 ## [0.4.15]
 - Risposte pulitissime: le righe OK oro restano solo live e spariscono alla fine (resta una riga sobria "✓ fatto (N attività)" + esito secco). Dettagli tecnici nascosti (niente codice nelle righe), regola finale più dura con italiano obbligatorio.
 

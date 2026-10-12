@@ -1,6 +1,6 @@
 {
-    "version":  "0.4.15",
-    "notes":  "- Risposte pulitissime: le righe OK oro restano solo live e spariscono alla fine (resta una riga sobria \"✓ fatto (N attività)\" + esito secco). Dettagli tecnici nascosti (niente codice nelle righe), regola finale più dura con italiano obbligatorio.",
+    "version":  "0.4.16",
+    "notes":  "- Allegati riparati: il `--file` va dopo il prompt (prima il motore cercava il prompt come file). Path sempre assoluti, controllo esistenza con messaggio chiaro, immagini oltre 10 MB compresse da sole, stop alle HEIC illeggibili.",
     "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/latest/download/ZEN-AGENT_x64-setup.exe",
-    "sha256":  "50dd835b76fc3977a757b304df152a62a1e970ae53964744eeca396aeabeddf2"
+    "sha256":  "6257c12b66d92dd0616a75d18f1472465480757cc1c76fc42dfcbd11f770ce23"
 }

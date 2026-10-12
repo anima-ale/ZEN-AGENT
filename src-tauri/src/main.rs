@@ -1291,6 +1291,80 @@ fn shorten(s: &str, max: usize) -> String {
     out + "…"
 }
 
+/// Riduce un'immagine oltre 10 MB a JPEG maneggevole (max 1920px, q80).
+fn downscale_image(src: &PathBuf, n: u64) -> Option<PathBuf> {
+    let dst = std::env::temp_dir().join(format!("zen-img-{}-{n}.jpg", std::process::id()));
+    let script = format!(
+        "Add-Type -AssemblyName System.Drawing; $i=[System.Drawing.Image]::FromFile('{}'); $w=$i.Width; $h=$i.Height; $s=[Math]::Min(1920/$w,1920/$h); if($s -gt 1){{$s=1}}; $w=[int]($w*$s); $h=[int]($h*$s); $b=New-Object System.Drawing.Bitmap($w,$h); $g=[System.Drawing.Graphics]::FromImage($b); $g.InterpolationMode=2; $g.DrawImage($i,0,0,$w,$h); $e=New-Object System.Drawing.Imaging.EncoderParameters(1); $e.Param[0]=New-Object System.Drawing.Imaging.EncoderParameter([System.Drawing.Imaging.Encoder]::Quality,80); $c=[System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object {{$_.MimeType -eq 'image/jpeg'}}; $b.Save('{}',$c[0],$e); $g.Dispose(); $b.Dispose(); $i.Dispose()",
+        src.to_string_lossy().replace('\'', ""),
+        dst.to_string_lossy().replace('\'', "")
+    );
+    let mut c = std::process::Command::new("powershell");
+    c.args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", &script]);
+    silence(&mut c);
+    c.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    if c.status().map(|s| s.success()).unwrap_or(false) && dst.is_file() {
+        Some(dst)
+    } else {
+        None
+    }
+}
+
+/// Prepara gli allegati: path assoluti, esistenza, limite 10 MB
+/// (immagini grandi compresse da sole), stop ai formati illeggibili.
+fn prepare_files(
+    attached: &[String],
+    prompt_temp: Option<PathBuf>,
+    cwd: &str,
+    cleanup: &mut Vec<PathBuf>,
+) -> Result<Vec<String>, String> {
+    let mut files: Vec<String> = vec![];
+    if let Some(p) = prompt_temp {
+        files.push(p.to_string_lossy().to_string());
+        cleanup.push(p);
+    }
+    for (i, f) in attached.iter().enumerate() {
+        let p = PathBuf::from(f);
+        let abs = if p.is_absolute() { p } else { PathBuf::from(cwd).join(&p) };
+        let abs = std::fs::canonicalize(&abs).unwrap_or(abs);
+        if !abs.is_file() {
+            let name = abs
+                .file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_else(|| f.clone());
+            return Err(format!("allegato non trovato sul PC: {name} (se l'hai trascinato dal browser, salvalo prima sul PC e riallegalo)"));
+        }
+        let ext = abs
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        if ext == "heic" || ext == "heif" {
+            return Err("foto in formato HEIC non supportata dal motore: convertila in JPG e riallegala".into());
+        }
+        let size = std::fs::metadata(&abs).map(|m| m.len()).unwrap_or(0);
+        let is_img = ["png", "jpg", "jpeg", "webp", "bmp", "gif"].contains(&ext.as_str());
+        if size > 10 * 1024 * 1024 {
+            if is_img {
+                match downscale_image(&abs, i as u64) {
+                    Some(tmp) => {
+                        files.push(tmp.to_string_lossy().to_string());
+                        cleanup.push(tmp);
+                    }
+                    None => {
+                        return Err("immagine oltre 10 MB e compressione fallita: riducila e riprova".into())
+                    }
+                }
+            } else {
+                return Err("allegato oltre 10 MB: il motore non lo accetta, dividilo o comprimilo".into());
+            }
+        } else {
+            files.push(abs.to_string_lossy().to_string());
+        }
+    }
+    Ok(files)
+}
+
 /// Verbo amichevole per tool (niente gergo interno).
 fn tool_verb(tool: &str) -> &str {
     match tool {
@@ -1496,17 +1570,18 @@ async fn agent_run(
                 v.push("--dir".into());
                 v.push(cwd.clone());
                 v.push("--auto".into());
+                // Il prompt PRIMA dei --file: il parser del motore tratta
+                // come file tutto ciò che segue un --file mal posizionato.
+                v.push(text.to_string());
                 for f in files {
                     v.push("--file".into());
                     v.push(f.clone());
                 }
-                v.push(text.to_string());
                 v
             };
         let build_run = |with_attach: bool, fast: bool, text: &str, files: &[String]| -> Vec<String> {
             build_args(false, with_attach, fast, text, files)
         };
-        let mut files = attached.clone();
         let mut temp_path: Option<std::path::PathBuf> = None;
         // Prompt enormi (>6000 caratteri): via file allegato. La riga di
         // comando di cmd.exe ha un limite (~8191 char) e le virgolette nei
@@ -1515,7 +1590,6 @@ async fn agent_run(
             let path = std::env::temp_dir().join(format!("zen-prompt-{}.txt", now_secs()));
             match std::fs::write(&path, prompt_owned.as_bytes()) {
                 Ok(_) => {
-                    files.push(path.to_string_lossy().to_string());
                     temp_path = Some(path);
                     String::from(
                         "La richiesta completa è nel file allegato: leggilo integralmente ed eseguilo passo passo.",
@@ -1532,13 +1606,24 @@ async fn agent_run(
         // Stile fisso anti-narrazione davanti a tutto (la cache resta sulla
         // richiesta originale dell'utente).
         let final_prompt = format!("{STYLE_RULE} {prompt_text}");
+        // Allegati verificati: path assoluti, esistenza, 10 MB, HEIC.
+        let mut cleanup: Vec<std::path::PathBuf> = vec![];
+        let files = match prepare_files(&attached, temp_path, &cwd, &mut cleanup) {
+            Ok(f) => f,
+            Err(e) => {
+                for p in cleanup {
+                    let _ = std::fs::remove_file(&p);
+                }
+                return Err(e);
+            }
+        };
         // Corsia veloce: cache disco, poi streaming live diretto (l'attach
         // costa ~2,5s e resta solo come fallback). Ordine: diretto+veloce,
         // diretto, attach+veloce, attach. Poi fallback classico stesso ordine.
         let cacheable = attached.is_empty() && prompt_owned.chars().count() <= 500;
         if cacheable {
             if let Some(hit) = cache_get(prompt_owned.trim()) {
-                if let Some(p) = temp_path {
+                for p in cleanup {
                     let _ = std::fs::remove_file(&p);
                 }
                 return Ok(hit);
@@ -1569,7 +1654,7 @@ async fn agent_run(
                 cache_put(prompt_owned.trim(), o);
             }
         }
-        if let Some(p) = temp_path {
+        for p in cleanup {
             let _ = std::fs::remove_file(&p);
         }
         out
