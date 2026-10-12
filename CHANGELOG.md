@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.4.12]
+- Fix server telefono: le connessioni ereditavano il non-blocking del listener e non rispondevano mai. Ora tornano bloccanti e la pagina mobile funziona.
+
 ## [0.4.11]
 - Collega-telefono: nelle impostazioni il tasto crea-QR accende un mini-server con token e mostra QR + link. Scannerizzi con qualsiasi telefono (stesso Wi-Fi), scrivi nella pagina e il messaggio entra nella sessione aperta sul PC con risposta che torna anche al telefono.
 

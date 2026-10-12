@@ -1,0 +1,1 @@
+- Fix server telefono: le connessioni ereditavano il non-blocking del listener e non rispondevano mai. Ora tornano bloccanti e la pagina mobile funziona.

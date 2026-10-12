@@ -1,6 +1,6 @@
 {
-    "version":  "0.4.11",
-    "notes":  "- Collega-telefono: nelle impostazioni il tasto crea-QR accende un mini-server con token e mostra QR + link. Scannerizzi con qualsiasi telefono (stesso Wi-Fi), scrivi nella pagina e il messaggio entra nella sessione aperta sul PC con risposta che torna anche al telefono.",
+    "version":  "0.4.12",
+    "notes":  "- Fix server telefono: le connessioni ereditavano il non-blocking del listener e non rispondevano mai. Ora tornano bloccanti e la pagina mobile funziona.",
     "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/latest/download/ZEN-AGENT_x64-setup.exe",
-    "sha256":  "e27dd56e4950bdffdfb24e7599e743e48ca6713cca7201ab7ef02e4b581e95a0"
+    "sha256":  "c130f985426a47a75168428f5c3e43875d2e550fea95e43dd8ddaba1526ca692"
 }

@@ -875,6 +875,8 @@ fn http_reply(s: &mut std::net::TcpStream, code: &str, ctype: &str, body: &[u8])
 
 fn handle_phone_conn(app: &tauri::AppHandle, mut s: std::net::TcpStream, token: &str) {
     use std::io::Read;
+    // Le connessioni ereditano il non-blocking del listener: torna bloccante.
+    let _ = s.set_nonblocking(false);
     let _ = s.set_read_timeout(Some(std::time::Duration::from_secs(10)));
     let mut buf = vec![0u8; 65536];
     let n = match s.read(&mut buf) {
