@@ -31,7 +31,7 @@ const DEFAULT_FREE_SMALL_MODEL: &str = "opencode/nemotron-3.5-lightning-free";
 /// Pensiero sempre al minimo: reasoning effort ridotto (quasi istantaneo).
 const FAST_VARIANT: &str = "minimal";
 /// Stile fisso: niente narrazione né annunci, solo fatti + conferme brevi.
-const STYLE_RULE: &str = "REGOLA FISSA: non scrivere mai nessun testo prima di aver finito con gli strumenti; lavora in silenzio e parla solo a lavoro concluso con conferme brevissime. Vietato annunciare.";
+const STYLE_RULE: &str = "REGOLA FISSA: lavora in silenzio, non annunciare mai nulla prima o durante gli strumenti. Se agisci: risposta finale di una sola riga in italiano col solo esito (es. Fatto.). Se rispondi a una domanda: risposta diretta e breve, in italiano. Mai come ci sei arrivato, mai errori o tentativi incontrati.";
 const SERVE_PORT: u16 = 4096;
 
 // ZENdate (come KOA Browser): manifest su GitHub raw + setup exe nelle Release.

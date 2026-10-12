@@ -749,7 +749,7 @@ body[data-graphics="neo"] *:not(.unified-input-wrapper):not(.unified-input-wrapp
   border-radius: 10px;
   box-shadow: none;
   animation: neo1In 0.2s ease-out;
-  -webkit-app-region: drag;
+  -webkit-app-region: no-drag;
 }
 #aux-card button, #aux-card textarea, #aux-card input, #aux-card label { -webkit-app-region: no-drag; }
 #aux-header {
@@ -760,7 +760,9 @@ body[data-graphics="neo"] *:not(.unified-input-wrapper):not(.unified-input-wrapp
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   border-radius: 10px 10px 0 0;
+  -webkit-app-region: drag;
 }
+#aux-header button { -webkit-app-region: no-drag; }
 #aux-title {
   flex: 1;
   font-family: var(--mono);

@@ -1,0 +1,1 @@
+- Fix scroll vero nelle finestre ausiliarie: il drag della finestra resta solo sull'intestazione, il corpo scorre libero fino in fondo con rotella e barra.

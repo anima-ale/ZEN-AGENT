@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.4.14]
+- Fix scroll vero nelle finestre ausiliarie: il drag della finestra resta solo sull'intestazione, il corpo scorre libero fino in fondo con rotella e barra.
+
 ## [0.4.13]
 - Telefono fuori-casa: nuovo tasto nelle impostazioni che apre un tunnel internet (Cloudflare, scaricato e verificato solo su richiesta) con secondo QR valido su qualsiasi rete. Fix scroll impostazioni (mancava min-height:0) + finestra più alta.
 

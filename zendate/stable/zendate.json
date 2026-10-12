@@ -1,6 +1,6 @@
 {
-    "version":  "0.4.13",
-    "notes":  "- Telefono fuori-casa: nuovo tasto nelle impostazioni che apre un tunnel internet (Cloudflare, scaricato e verificato solo su richiesta) con secondo QR valido su qualsiasi rete. Fix scroll impostazioni (mancava min-height:0) + finestra più alta.",
+    "version":  "0.4.14",
+    "notes":  "- Fix scroll vero nelle finestre ausiliarie: il drag della finestra resta solo sull\u0027intestazione, il corpo scorre libero fino in fondo con rotella e barra.",
     "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/latest/download/ZEN-AGENT_x64-setup.exe",
-    "sha256":  "4613365c8b3f64d1de83b849059c41b9e3771979197b5f2fb296acdb710b48b7"
+    "sha256":  "017a8f93f43a39cd54f4970ac689d00d6851764db991c995a2ea17c859531808"
 }
