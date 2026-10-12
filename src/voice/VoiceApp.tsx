@@ -74,6 +74,9 @@ export default function VoiceApp() {
   const startedRef = useRef(false);
   // Ultimo pezzo lanciato: contesto per il successivo
   const lastSegRef = useRef<string | null>(null);
+  // Anti-loop: generazione sessione + ultima chiusura (cooldown)
+  const sessRef = useRef(0);
+  const lastCloseRef = useRef(0);
 
   const clearTimers = () => {
     window.clearTimeout(hideTimer.current);
@@ -83,6 +86,8 @@ export default function VoiceApp() {
 
   const closeVoice = useCallback(() => {
     clearTimers();
+    sessRef.current += 1; // invalida chiusure/parole orfane
+    lastCloseRef.current = Date.now();
     stopRec(wakeRef);
     stopRec(cmdRef);
     try {
@@ -96,15 +101,23 @@ export default function VoiceApp() {
     setHeard("");
     setAnswer("");
     setRuns(0);
+    // La finestrella si chiude ma l'orecchio resta: riparte il wake
+    if (listenRef.current) startWake();
   }, []);
 
-  const scheduleHide = useCallback(() => {
-    window.clearTimeout(hideTimer.current);
-    hideTimer.current = window.setTimeout(() => closeVoice(), 5000);
-  }, [closeVoice]);
+  const scheduleHide = useCallback(
+    (sess: number) => {
+      window.clearTimeout(hideTimer.current);
+      hideTimer.current = window.setTimeout(() => {
+        if (sessRef.current !== sess) return; // sessione vecchia: ignora
+        closeVoice();
+      }, 5000);
+    },
+    [closeVoice],
+  );
 
   const speak = useCallback(
-    (text: string) => {
+    (text: string, sess: number) => {
       try {
         speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text.slice(0, 600));
@@ -113,31 +126,36 @@ export default function VoiceApp() {
           .getVoices()
           .filter((v) => v.lang.toLowerCase().startsWith("it"));
         if (vs[0]) u.voice = vs[0];
-        u.onend = () => scheduleHide();
-        u.onerror = () => scheduleHide();
+        u.onend = () => scheduleHide(sess);
+        u.onerror = () => scheduleHide(sess);
         speechSynthesis.speak(u);
       } catch {
-        scheduleHide();
+        scheduleHide(sess);
       }
     },
     [scheduleHide],
   );
 
-  const maybeFinish = useCallback(() => {
-    if (!micClosedRef.current || pendingRunsRef.current > 0) return;
-    if (!startedRef.current) {
-      closeVoice(); // solo rumore: chiudi in silenzio
-      return;
-    }
-    const summary = answersRef.current.filter((a) => a.trim() !== "").join(". ");
-    const clean = (summary.trim() || "Fatto.").slice(0, 600);
-    setAnswer(clean);
-    setPhase("done");
-    speak(clean);
-  }, [closeVoice, speak]);
+  const maybeFinish = useCallback(
+    (sess: number) => {
+      if (sessRef.current !== sess) return;
+      if (!micClosedRef.current || pendingRunsRef.current > 0) return;
+      if (!startedRef.current) {
+        closeVoice(); // solo rumore: chiudi in silenzio
+        return;
+      }
+      const summary = answersRef.current.filter((a) => a.trim() !== "").join(". ");
+      const clean = (summary.trim() || "Fatto.").slice(0, 600);
+      setAnswer(clean);
+      setPhase("done");
+      speak(clean, sess);
+    },
+    [closeVoice, speak],
+  );
 
   const dispatchSegment = useCallback(
-    (seg: string, prev: string | null) => {
+    (seg: string, prev: string | null, sess: number) => {
+      if (sessRef.current !== sess) return;
       startedRef.current = true;
       pendingRunsRef.current += 1;
       setRuns(pendingRunsRef.current);
@@ -148,16 +166,19 @@ export default function VoiceApp() {
       api
         .run(prompt, true, [])
         .then((out) => {
+          if (sessRef.current !== sess) return;
           const t = (out || "Fatto.").trim();
           if (t) answersRef.current.push(t);
         })
         .catch(() => {
+          if (sessRef.current !== sess) return;
           answersRef.current.push("Non sono riuscito a fare una cosa.");
         })
         .finally(() => {
+          if (sessRef.current !== sess) return;
           pendingRunsRef.current -= 1;
           setRuns(pendingRunsRef.current);
-          maybeFinish();
+          maybeFinish(sess);
         });
     },
     [maybeFinish],
@@ -166,7 +187,8 @@ export default function VoiceApp() {
   // Fa partire i pezzi completi del parlato (tutti tranne l'ultimo, ancora
   // in bocca). Ritorna quanti ne ha lanciati.
   const dispatchCompletes = useCallback(
-    (full: string, forceLast: boolean, minWords: number): number => {
+    (full: string, forceLast: boolean, minWords: number, sess: number): number => {
+      if (sessRef.current !== sess) return 0;
       let start = committedRef.current;
       if (start > full.length) start = full.length;
       const suffix = full.slice(start);
@@ -181,7 +203,7 @@ export default function VoiceApp() {
         const seg = cleanSeg(tokens[i]);
         const words = seg.split(/\s+/).filter(Boolean).length;
         if (seg.length >= 2 && words >= (isLast ? minWords : 1)) {
-          dispatchSegment(seg, prev);
+          dispatchSegment(seg, prev, sess);
           prev = seg;
           launched += 1;
         }
@@ -202,12 +224,13 @@ export default function VoiceApp() {
   }, [closeVoice]);
 
   const pokeEndpoint = useCallback(
-    (full: string) => {
+    (full: string, sess: number) => {
       window.clearTimeout(endTimer.current);
       endTimer.current = window.setTimeout(() => {
         // 1,2s di silenzio: il pezzo in bocca è completo, parte subito
+        if (sessRef.current !== sess) return;
         if (phaseRef.current !== "cmd" && phaseRef.current !== "busy") return;
-        dispatchCompletes(full, true, 2);
+        dispatchCompletes(full, true, 2, sess);
       }, ENDPOINT_MS);
     },
     [dispatchCompletes],
@@ -252,6 +275,11 @@ export default function VoiceApp() {
   }, []);
 
   const triggerCommand = useCallback(() => {
+    // Anti-loop: un trigger alla volta + 2s di calma dopo ogni chiusura
+    if (phaseRef.current !== "idle") return;
+    if (Date.now() - lastCloseRef.current < 2000) return;
+    const sess = sessRef.current + 1;
+    sessRef.current = sess;
     clearTimers();
     api.showVoice().catch(() => undefined);
     setVisible(true);
@@ -274,21 +302,24 @@ export default function VoiceApp() {
     }
     cmdRef.current = r;
     r.onresult = (e: { results: ArrayLike<{ 0: { transcript: string } }> }) => {
+      if (cmdRef.current !== r || sessRef.current !== sess) return;
       const full = fullOf(e);
       setHeard(full);
       pokeIdle(); // parole per lui: il conto dei 10s riparte
-      pokeEndpoint(full);
+      pokeEndpoint(full, sess);
       // Pezzi completi partono SUBITO, mentre continua a parlare
-      dispatchCompletes(full, false, 2);
+      dispatchCompletes(full, false, 2, sess);
     };
     r.onend = () => {
+      if (cmdRef.current !== r) return; // rec orfano: ignora
+      if (sessRef.current !== sess) return;
       // Bocca chiusa: tutto ciò che resta parte come finale
       micClosedRef.current = true;
       window.clearTimeout(endTimer.current);
       window.clearTimeout(idleTimer.current);
       const h = heardRef.current;
-      if (h) dispatchCompletes(h, true, 1);
-      maybeFinish();
+      if (h) dispatchCompletes(h, true, 1, sess);
+      maybeFinish(sess);
     };
     r.onerror = () => {
       /* onend gestisce */

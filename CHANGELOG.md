@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.7.2]
+- TITAN anti-loop: un trigger alla volta, 2s di calma dopo ogni chiusura, generazioni di sessione (chiusure e parole orfane ignorate), wake che riparte dopo la chiusura. La finestrella non flasha più e la X chiude davvero.
+
 ## [0.7.1]
 - Splitter vocale corretto: la "e" solitaria non spezza più le liste ("q1.txt e q2.txt" resta unito), aggiunte varianti "e dopo/e quindi/e allora". I frammenti ereditano il pezzo prima come contesto.
 

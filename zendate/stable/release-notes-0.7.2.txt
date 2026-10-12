@@ -1,0 +1,1 @@
+- TITAN anti-loop: un trigger alla volta, 2s di calma dopo ogni chiusura, generazioni di sessione (chiusure e parole orfane ignorate), wake che riparte dopo la chiusura. La finestrella non flasha più e la X chiude davvero.
