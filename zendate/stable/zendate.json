@@ -1,6 +1,6 @@
 {
-    "version":  "0.4.1",
-    "notes":  "- Logo tuo ovunque: icone exe/setup/tray rigenerate dal tuo PNG; setup con header e sidebar scuri NEO1 (nero + filetto oro).",
-    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.4.1/ZEN-AGENT_0.4.1_x64-setup.exe",
-    "sha256":  "7a7382730268d2d741ae24e3876a4d3bd1cb28b5de9b44dd7d5749c0bb906743"
+    "version":  "0.4.2",
+    "notes":  "- Setup riscritto a mano in NSIS tutto scuro NEO1 (niente più pagine bianche): sidebar col logo, testi chiari su nero, oro per i titoli. Stesse cartelle/chiavi di prima + /S silenzioso per l\u0027auto-update.",
+    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.4.2/ZEN-AGENT_0.4.2_x64-setup.exe",
+    "sha256":  "d5f903c3b1932cc6043511a4c2af8befb41f24bb7d1ef461c726a8f5e84238e6"
 }

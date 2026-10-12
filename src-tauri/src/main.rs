@@ -209,7 +209,17 @@ fn silence(cmd: &mut std::process::Command) {
 /// cmd tratta gli a capo come separatori di comando e taglia i prompt
 /// multilinea alla prima riga (il resto muore lì).
 fn direct_opencode_exe() -> Option<PathBuf> {
-    // 1. Posizione standard npm global su Windows:
+    // 1. Accanto al nostro exe (il setup scuro ce lo mette): app autonoma,
+    // niente Node/npm richiesti sul PC dell'utente.
+    if let Ok(me) = std::env::current_exe() {
+        if let Some(dir) = me.parent() {
+            let p = dir.join("opencode.exe");
+            if p.is_file() {
+                return Some(p);
+            }
+        }
+    }
+    // 2. Posizione standard npm global su Windows:
     // %APPDATA%\npm\node_modules\opencode-ai\bin\opencode.exe
     if let Ok(appdata) = std::env::var("APPDATA") {
         let p = PathBuf::from(appdata)
@@ -222,7 +232,7 @@ fn direct_opencode_exe() -> Option<PathBuf> {
             return Some(p);
         }
     }
-    // 2. Primo .exe reale trovato via where
+    // 3. Primo .exe reale trovato via where
     if let Ok(out) = {
         let mut c = std::process::Command::new("cmd");
         #[cfg(target_os = "windows")]

@@ -6,4 +6,10 @@ set RUSTUP_HOME=C:\Users\giova\.rustup
 cd /d "%~dp0.."
 call npx tauri build
 echo.
-echo BUILD EXIT: %ERRORLEVEL%
+echo TAURI BUILD EXIT: %ERRORLEVEL%
+if errorlevel 1 goto fine
+REM Installer scuro NEO1 scritto a mano (sovrascrive il setup di Tauri)
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build-dark-setup.ps1
+echo.
+echo DARK SETUP EXIT: %ERRORLEVEL%
+:fine

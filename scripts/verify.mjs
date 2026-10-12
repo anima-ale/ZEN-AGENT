@@ -21,6 +21,8 @@ const need = [
   "src-tauri/src/main.rs",
   "scripts/install-prereqs.ps1",
   "scripts/bootstrap-opencode.ps1",
+  "scripts/build-dark-setup.ps1",
+  "nsis/zen-setup.nsi",
   "zendate/make-zendate.ps1",
   "pubblica-update.bat",
 ];

@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.4.2]
+- Setup riscritto a mano in NSIS tutto scuro NEO1 (niente più pagine bianche): sidebar col logo, testi chiari su nero, oro per i titoli. Stesse cartelle/chiavi di prima + /S silenzioso per l'auto-update.
+
 ## [0.4.1]
 - Logo tuo ovunque: icone exe/setup/tray rigenerate dal tuo PNG; setup con header e sidebar scuri NEO1 (nero + filetto oro).
 

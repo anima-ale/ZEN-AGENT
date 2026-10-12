@@ -38,7 +38,8 @@ function New-DarkBmp($w, $h, $out) {
   Write-Output ("BMP:{0} ({1}x{2})" -f $out, $w, $h)
 }
 
-# Header NSIS 150x57, sidebar NSIS 164x314
+# Header NSIS 150x57, sidebar NSIS 164x314, sidebar scura compatta per il nostro installer
 New-DarkBmp 150 57 (Join-Path $nsisDir "header.bmp")
 New-DarkBmp 164 314 (Join-Path $nsisDir "sidebar.bmp")
+New-DarkBmp 164 240 (Join-Path $nsisDir "sidebar-dark.bmp")
 Write-Output "NSIS-ASSETS-OK"
