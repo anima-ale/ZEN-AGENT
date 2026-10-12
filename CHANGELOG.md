@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.4.8]
+- Run live come nel video: conferma "▶ ZEN ha iniziato…", poi riga oro numerata `OK "ATTIVITÀ n" COMPLETATA` per ogni passo finito. Pensieri in grigio nella barra (tracce di attività live, spariscono alla risposta: il reasoning interno del provider è cifrato e non leggibile).
+
 ## [0.4.7]
 - Pensiero sempre al minimo: ogni run usa `--variant minimal` (reasoning effort ridotto, risposta quasi istantanea), anche nelle attività programmate. Se un provider rifiuta la variante, scala da solo senza rompere nulla.
 

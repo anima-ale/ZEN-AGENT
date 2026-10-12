@@ -833,8 +833,123 @@ fn agent_status(state: tauri::State<AppState>) -> AgentStatus {
     }
 }
 
+/// Dettaglio breve per la riga OK: primo campo utile dell'input tool.
+fn tool_detail(input: &serde_json::Value) -> String {
+    for k in ["filePath", "command", "pattern", "query", "prompt", "url", "path", "message"] {
+        if let Some(s) = input.get(k).and_then(|v| v.as_str()) {
+            let t = s.trim().replace('\n', " ");
+            if !t.is_empty() {
+                let short = t.rsplit(['/', '\\']).next().unwrap_or(&t).to_string();
+                return truncate(&short, 80);
+            }
+        }
+    }
+    String::new()
+}
+
+/// Run in streaming JSON: conferma di inizio, riga OK numerata per ogni
+/// attività completata e pensieri live (eventi al pannello). Il reasoning
+/// vero del provider è cifrato, quindi i "pensieri" sono tracce di attività
+/// (cosa sta facendo), non il testo interno del modello.
+fn run_streamed(
+    app: &tauri::AppHandle,
+    argv: Vec<String>,
+    cwd: &str,
+) -> Result<String, String> {
+    use std::io::BufRead;
+    let mut cmd = opencode_command();
+    cmd.args(&argv).current_dir(cwd);
+    cmd.stdin(Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(Stdio::null());
+    let mut child = cmd.spawn().map_err(|e| format!("avvio opencode fallito: {e}"))?;
+    let stdout = child.stdout.take().ok_or("stdout mancante")?;
+    let mut final_text = String::new();
+    let mut acts: u32 = 0;
+    let mut started = false;
+    let mut saw_content = false;
+    for line in std::io::BufReader::new(stdout).lines() {
+        let Ok(line) = line else { break };
+        let t = line.trim();
+        if t.is_empty() || !t.starts_with('{') {
+            continue;
+        }
+        let v: serde_json::Value = match serde_json::from_str(t) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let kind = v.get("type").and_then(|x| x.as_str()).unwrap_or("");
+        let part = v.get("part");
+        match kind {
+            "step_start" => {
+                if !started {
+                    started = true;
+                    let _ = app.emit("zen-run-started", "▶ ZEN ha iniziato…");
+                    let _ = app.emit("zen-thinking", "Analizzo la richiesta…");
+                }
+            }
+            "reasoning" => {
+                if let Some(s) = part
+                    .and_then(|p| p.get("text"))
+                    .and_then(|x| x.as_str())
+                {
+                    if !s.trim().is_empty() {
+                        saw_content = true;
+                        let _ = app.emit("zen-thinking", truncate(s.trim(), 300));
+                    }
+                }
+            }
+            "tool_use" => {
+                let done = part
+                    .and_then(|p| p.get("state"))
+                    .and_then(|s| s.get("status"))
+                    .and_then(|x| x.as_str())
+                    == Some("completed");
+                if done {
+                    acts += 1;
+                    saw_content = true;
+                    let tool = part
+                        .and_then(|p| p.get("tool"))
+                        .and_then(|x| x.as_str())
+                        .unwrap_or("attività");
+                    let det = part
+                        .and_then(|p| p.get("state"))
+                        .and_then(|s| s.get("input"))
+                        .map(tool_detail)
+                        .unwrap_or_default();
+                    let line = if det.is_empty() {
+                        format!("OK \"ATTIVITÀ {acts}\" COMPLETATA — {tool}")
+                    } else {
+                        format!("OK \"ATTIVITÀ {acts}\" COMPLETATA — {tool}: {det}")
+                    };
+                    let _ = app.emit("zen-run-progress", line);
+                    let _ = app.emit("zen-thinking", format!("{tool} fatto, continuo…"));
+                }
+            }
+            "text" => {
+                if let Some(s) = part.and_then(|p| p.get("text")).and_then(|x| x.as_str()) {
+                    if !s.is_empty() {
+                        saw_content = true;
+                        final_text.push_str(s);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    let st = child.wait().map_err(|e| format!("attesa opencode fallita: {e}"))?;
+    if !st.success() {
+        return Err("opencode errore (stream)".into());
+    }
+    if !saw_content {
+        return Err("opencode risposta vuota (stream)".into());
+    }
+    Ok(final_text)
+}
+
 #[tauri::command]
 async fn agent_run(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     prompt: String,
     auto_approve: Option<bool>,
@@ -845,33 +960,47 @@ async fn agent_run(
     let _auto_flag = auto_approve.unwrap_or(false);
     let attached = files.unwrap_or_default();
     // Nessun contesto chat: il modello riceve solo la richiesta così com'è.
+    let app_in = app.clone();
     tokio::task::spawn_blocking(move || {
         let attach = format!("http://127.0.0.1:{SERVE_PORT}");
         let run_with = |argv: Vec<String>| -> Result<String, String> {
             let refs: Vec<&str> = argv.iter().map(|s| s.as_str()).collect();
             run_opencode_args(&refs, &cwd)
         };
+        // Argv streaming JSON (pensieri + OK live) oppure default (fallback).
+        let build_args =
+            |json: bool, with_attach: bool, fast: bool, text: &str, files: &[String]| -> Vec<String> {
+                let mut v: Vec<String> = vec!["run".into()];
+                if json {
+                    v.push("--format".into());
+                    v.push("json".into());
+                    v.push("--thinking".into());
+                } else {
+                    v.push("--format".into());
+                    v.push("default".into());
+                }
+                if with_attach {
+                    v.push("--attach".into());
+                    v.push(attach.clone());
+                }
+                if fast {
+                    // Pensiero SEMPRE al minimo: reasoning effort ridotto,
+                    // risposta quasi istantanea.
+                    v.push("--variant".into());
+                    v.push(FAST_VARIANT.into());
+                }
+                v.push("--dir".into());
+                v.push(cwd.clone());
+                v.push("--auto".into());
+                for f in files {
+                    v.push("--file".into());
+                    v.push(f.clone());
+                }
+                v.push(text.to_string());
+                v
+            };
         let build_run = |with_attach: bool, fast: bool, text: &str, files: &[String]| -> Vec<String> {
-            let mut v: Vec<String> = vec!["run".into(), "--format".into(), "default".into()];
-            if with_attach {
-                v.push("--attach".into());
-                v.push(attach.clone());
-            }
-            if fast {
-                // Pensiero SEMPRE al minimo: reasoning effort ridotto,
-                // risposta quasi istantanea.
-                v.push("--variant".into());
-                v.push(FAST_VARIANT.into());
-            }
-            v.push("--dir".into());
-            v.push(cwd.clone());
-            v.push("--auto".into());
-            for f in files {
-                v.push("--file".into());
-                v.push(f.clone());
-            }
-            v.push(text.to_string());
-            v
+            build_args(false, with_attach, fast, text, files)
         };
         let mut files = attached.clone();
         let mut temp_path: Option<std::path::PathBuf> = None;
@@ -897,16 +1026,28 @@ async fn agent_run(
         // da solo nel suo loop agente; ogni header in più diventa solo un
         // pretesto per chiedere all'utente invece di eseguire.
         let final_prompt = prompt_text;
-        // Tentativi in ordine: attach+veloce, attach, diretto+veloce, diretto.
+        // Prima lo streaming live (inizio + OK + pensieri), poi il fallback
+        // classico. Ordine: attach+veloce, attach, diretto+veloce, diretto.
         // Se un provider rifiuta la variante veloce, si scala senza rompere nulla.
-        let mut out = run_with(build_run(true, true, &final_prompt, &files))
+        let mut out = run_streamed(&app_in, build_args(true, true, true, &final_prompt, &files), &cwd)
             .map(|o| truncate(&o, 12000));
         for (att, fast) in [(true, false), (false, true), (false, false)] {
             if out.is_ok() {
                 break;
             }
-            out = run_with(build_run(att, fast, &final_prompt, &files))
+            out = run_streamed(&app_in, build_args(true, att, fast, &final_prompt, &files), &cwd)
                 .map(|o| truncate(&o, 12000));
+        }
+        if out.is_err() {
+            out = run_with(build_run(true, true, &final_prompt, &files))
+                .map(|o| truncate(&o, 12000));
+            for (att, fast) in [(true, false), (false, true), (false, false)] {
+                if out.is_ok() {
+                    break;
+                }
+                out = run_with(build_run(att, fast, &final_prompt, &files))
+                    .map(|o| truncate(&o, 12000));
+            }
         }
         if let Some(p) = temp_path {
             let _ = std::fs::remove_file(&p);

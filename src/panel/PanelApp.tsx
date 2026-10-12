@@ -96,6 +96,17 @@ export function renderMarkdown(src: string): string {
       html += "<div class=\"md-gap\"></div>";
       continue;
     }
+    // Run live: conferme numerate in oro, riga di inizio in grigio
+    if (line.startsWith('OK "')) {
+      closeList();
+      html += `<div class="md-ok">${mdInline(line)}</div>`;
+      continue;
+    }
+    if (line.startsWith("▶ ")) {
+      closeList();
+      html += `<div class="md-start">${mdInline(line)}</div>`;
+      continue;
+    }
     if (line.trim().startsWith("|") && line.trim().endsWith("|")) {
       closeList();
       const cells = line.trim().slice(1, -1).split("|").map((c) => c.trim());
@@ -187,7 +198,10 @@ export default function PanelApp() {
   const [needsRepair, setNeedsRepair] = useState(false);
   const [repairing, setRepairing] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [thinking, setThinking] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // id del messaggio agente in volo: qui si accumulano inizio + OK live
+  const liveId = useRef<number | null>(null);
   // Chiuso nella goccia mentre ZEN Nebula pensava: alla risposta suona la notifica
   const hiddenWhileBusy = useRef(false);
 
@@ -307,6 +321,24 @@ export default function PanelApp() {
           if (alive) setProgress(e.payload);
         }),
       );
+      // Run live dal motore: inizio, OK per attività, pensieri in grigio
+      if (!alive) return;
+      const appendLive = (line: string) => {
+        if (!alive || liveId.current == null) return;
+        const id = liveId.current;
+        setMessages((m) =>
+          m.map((msg) => (msg.id === id ? { ...msg, text: msg.text ? `${msg.text}\n${line}` : line } : msg)),
+        );
+      };
+      unlistens.push(await listen<string>("zen-run-started", (e) => appendLive(e.payload)));
+      if (!alive) return;
+      unlistens.push(await listen<string>("zen-run-progress", (e) => appendLive(e.payload)));
+      if (!alive) return;
+      unlistens.push(
+        await listen<string>("zen-thinking", (e) => {
+          if (alive) setThinking(e.payload);
+        }),
+      );
     })();
     return () => {
       alive = false;
@@ -328,15 +360,24 @@ export default function PanelApp() {
     setFiles([]);
     push("user", attached.length ? `${text}\n[allegati: ${attached.map(fileName).join(", ")}]` : text);
     const id = nextId++;
-    setMessages((m) => [...m, { id, who: "agent", text: "..." }]);
+    liveId.current = id;
+    setThinking(null);
+    setMessages((m) => [...m, { id, who: "agent", text: "" }]);
     try {
       const out = await api.run(text, auto, attached);
-      setMessages((m) => m.map((msg) => (msg.id === id ? { ...msg, text: out || "(nessun output)" } : msg)));
+      setMessages((m) =>
+        m.map((msg) =>
+          msg.id === id ? { ...msg, text: msg.text ? `${msg.text}\n${out || "(nessun output)"}` : out || "(nessun output)" } : msg,
+        ),
+      );
     } catch (e) {
       const err = String(e);
       setMessages((m) => m.map((msg) => (msg.id === id ? { ...msg, text: "Errore: " + err } : msg)));
       if (err.includes("no session table")) setNeedsRepair(true);
     } finally {
+      // risposta arrivata: pensieri in grigio spariscono, resta inizio + OK + risposta
+      liveId.current = null;
+      setThinking(null);
       // risposta arrivata: se eri chiuso nella goccia, notifica con suono + pallino
       setBusy(false);
       setBusySecs(0);
@@ -482,7 +523,7 @@ export default function PanelApp() {
               <div
                 key={m.id}
                 className="msg agent md"
-                dangerouslySetInnerHTML={{ __html: renderMarkdown(m.text) }}
+                dangerouslySetInnerHTML={{ __html: m.text ? renderMarkdown(m.text) : "<div class=\"md-p\">…</div>" }}
               />
             ) : (
               <div key={m.id} className={`msg ${m.who}`}>{m.text}</div>
@@ -493,7 +534,11 @@ export default function PanelApp() {
         {busy && (
           <div id="think-bar">
             <ThinkOrb />
-            <span id="think-text">ZEN Nebula pensa<span className="gold-dots"><span>.</span><span>.</span><span>.</span></span></span>
+            {thinking ? (
+              <span id="think-thoughts">{thinking}</span>
+            ) : (
+              <span id="think-text">ZEN Nebula pensa<span className="gold-dots"><span>.</span><span>.</span><span>.</span></span></span>
+            )}
             {busySecs >= 20 && (
               <button
                 id="snake-btn"

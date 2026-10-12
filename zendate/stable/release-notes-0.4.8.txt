@@ -1,0 +1,1 @@
+- Run live come nel video: conferma "▶ ZEN ha iniziato…", poi riga oro numerata `OK "ATTIVITÀ n" COMPLETATA` per ogni passo finito. Pensieri in grigio nella barra (tracce di attività live, spariscono alla risposta: il reasoning interno del provider è cifrato e non leggibile).

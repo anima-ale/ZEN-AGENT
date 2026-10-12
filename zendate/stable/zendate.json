@@ -1,6 +1,6 @@
 {
-    "version":  "0.4.7",
-    "notes":  "- Pensiero sempre al minimo: ogni run usa `--variant minimal` (reasoning effort ridotto, risposta quasi istantanea), anche nelle attività programmate. Se un provider rifiuta la variante, scala da solo senza rompere nulla.",
+    "version":  "0.4.8",
+    "notes":  "- Run live come nel video: conferma \"▶ ZEN ha iniziato…\", poi riga oro numerata `OK \"ATTIVITÀ n\" COMPLETATA` per ogni passo finito. Pensieri in grigio nella barra (tracce di attività live, spariscono alla risposta: il reasoning interno del provider è cifrato e non leggibile).",
     "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/latest/download/ZEN-AGENT_x64-setup.exe",
-    "sha256":  "f9f84bb41ad9b4be4a0ca97c4d5abbb98ef66ba3a5cc8373c963dcdfbfd7f164"
+    "sha256":  "028cf8c56201db33578d8c40271137353b4b0d5469c795a561e32df831df3dfa"
 }
