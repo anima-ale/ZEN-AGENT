@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.4.9]
+- Corsia veloce: il diretto batte l'attach di ~2,5s, ora è sempre primo (attach solo di scorta). Cache risposte su disco: prompt identico e breve risponde istantaneo senza rete (TTL 24h). Warm-up gratis all'avvio: prima domanda senza costi di avvio a freddo.
+
 ## [0.4.8]
 - Run live come nel video: conferma "▶ ZEN ha iniziato…", poi riga oro numerata `OK "ATTIVITÀ n" COMPLETATA` per ogni passo finito. Pensieri in grigio nella barra (tracce di attività live, spariscono alla risposta: il reasoning interno del provider è cifrato e non leggibile).
 

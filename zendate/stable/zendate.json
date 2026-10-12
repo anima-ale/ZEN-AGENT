@@ -1,6 +1,6 @@
 {
-    "version":  "0.4.8",
-    "notes":  "- Run live come nel video: conferma \"▶ ZEN ha iniziato…\", poi riga oro numerata `OK \"ATTIVITÀ n\" COMPLETATA` per ogni passo finito. Pensieri in grigio nella barra (tracce di attività live, spariscono alla risposta: il reasoning interno del provider è cifrato e non leggibile).",
+    "version":  "0.4.9",
+    "notes":  "- Corsia veloce: il diretto batte l\u0027attach di ~2,5s, ora è sempre primo (attach solo di scorta). Cache risposte su disco: prompt identico e breve risponde istantaneo senza rete (TTL 24h). Warm-up gratis all\u0027avvio: prima domanda senza costi di avvio a freddo.",
     "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/latest/download/ZEN-AGENT_x64-setup.exe",
-    "sha256":  "028cf8c56201db33578d8c40271137353b4b0d5469c795a561e32df831df3dfa"
+    "sha256":  "1db29e5cf0ce22688d41eb47d8d625f2d59f6a178844f13c9fe11e9a1d5cf42e"
 }

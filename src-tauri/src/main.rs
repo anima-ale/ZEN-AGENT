@@ -642,13 +642,12 @@ fn spawn_task_scheduler(app: tauri::AppHandle, state: AppState) {
             if due {
                 let cwd = state.cwd.lock().unwrap().clone();
                 let prompt = t.prompt.clone();
+                // Diretto prima (l'attach costa ~2,5s), attach solo di scorta.
                 let res = run_opencode_args(
                     &[
                         "run",
                         "--format",
                         "default",
-                        "--attach",
-                        &format!("http://127.0.0.1:{SERVE_PORT}"),
                         "--variant",
                         FAST_VARIANT,
                         "--dir",
@@ -657,10 +656,20 @@ fn spawn_task_scheduler(app: tauri::AppHandle, state: AppState) {
                     ],
                     &cwd,
                 );
-                // se attach fallisce (serve giù), prova diretto (prima veloce, poi pieno)
                 if res.is_err() {
                     let r2 = run_opencode_args(
-                        &["run", "--variant", FAST_VARIANT, "--dir", &cwd, &prompt],
+                        &[
+                            "run",
+                            "--format",
+                            "default",
+                            "--attach",
+                            &format!("http://127.0.0.1:{SERVE_PORT}"),
+                            "--variant",
+                            FAST_VARIANT,
+                            "--dir",
+                            &cwd,
+                            &prompt,
+                        ],
                         &cwd,
                     );
                     if r2.is_err() {
@@ -1026,12 +1035,21 @@ async fn agent_run(
         // da solo nel suo loop agente; ogni header in più diventa solo un
         // pretesto per chiedere all'utente invece di eseguire.
         let final_prompt = prompt_text;
-        // Prima lo streaming live (inizio + OK + pensieri), poi il fallback
-        // classico. Ordine: attach+veloce, attach, diretto+veloce, diretto.
-        // Se un provider rifiuta la variante veloce, si scala senza rompere nulla.
-        let mut out = run_streamed(&app_in, build_args(true, true, true, &final_prompt, &files), &cwd)
+        // Corsia veloce: cache disco, poi streaming live diretto (l'attach
+        // costa ~2,5s e resta solo come fallback). Ordine: diretto+veloce,
+        // diretto, attach+veloce, attach. Poi fallback classico stesso ordine.
+        let cacheable = attached.is_empty() && prompt_owned.chars().count() <= 500;
+        if cacheable {
+            if let Some(hit) = cache_get(prompt_owned.trim()) {
+                if let Some(p) = temp_path {
+                    let _ = std::fs::remove_file(&p);
+                }
+                return Ok(hit);
+            }
+        }
+        let mut out = run_streamed(&app_in, build_args(true, false, true, &final_prompt, &files), &cwd)
             .map(|o| truncate(&o, 12000));
-        for (att, fast) in [(true, false), (false, true), (false, false)] {
+        for (att, fast) in [(false, false), (true, true), (true, false)] {
             if out.is_ok() {
                 break;
             }
@@ -1039,14 +1057,19 @@ async fn agent_run(
                 .map(|o| truncate(&o, 12000));
         }
         if out.is_err() {
-            out = run_with(build_run(true, true, &final_prompt, &files))
+            out = run_with(build_run(false, true, &final_prompt, &files))
                 .map(|o| truncate(&o, 12000));
-            for (att, fast) in [(true, false), (false, true), (false, false)] {
+            for (att, fast) in [(false, false), (true, true), (true, false)] {
                 if out.is_ok() {
                     break;
                 }
                 out = run_with(build_run(att, fast, &final_prompt, &files))
                     .map(|o| truncate(&o, 12000));
+            }
+        }
+        if cacheable {
+            if let Ok(o) = &out {
+                cache_put(prompt_owned.trim(), o);
             }
         }
         if let Some(p) = temp_path {
@@ -1117,6 +1140,73 @@ fn truncate(s: &str, max: usize) -> String {
     format!("{}…\n[output troncato, {} caratteri totali]", &s[..end], s.len())
 }
 
+/// Cache risposte (motore di cache): prompt identico e breve, senza
+/// allegati -> risposta istantanea da disco, zero rete. TTL 24h, tetto 100 voci.
+fn cache_dir() -> PathBuf {
+    home_dir().join(".zen-agent").join("cache")
+}
+
+fn fnv1a(s: &str) -> u64 {
+    let mut h: u64 = 0xcbf29ce484222325;
+    for b in s.bytes() {
+        h ^= b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    h
+}
+
+fn cache_get(prompt: &str) -> Option<String> {
+    let f = cache_dir().join(format!("{:016x}.json", fnv1a(prompt)));
+    let text = std::fs::read_to_string(&f).ok()?;
+    let v: serde_json::Value = serde_json::from_str(&text).ok()?;
+    if now_secs().saturating_sub(v.get("t")?.as_u64()?) > 86400 {
+        let _ = std::fs::remove_file(&f);
+        return None;
+    }
+    v.get("r")?.as_str().map(|s| s.to_string())
+}
+
+fn cache_put(prompt: &str, resp: &str) {
+    let dir = cache_dir();
+    let _ = std::fs::create_dir_all(&dir);
+    if let Ok(list) = std::fs::read_dir(&dir) {
+        let mut files: Vec<PathBuf> = list.filter_map(|e| e.ok().map(|x| x.path())).collect();
+        if files.len() >= 100 {
+            files.sort_by_key(|p| {
+                std::fs::metadata(p)
+                    .and_then(|m| m.modified())
+                    .ok()
+            });
+            if let Some(old) = files.first() {
+                let _ = std::fs::remove_file(old);
+            }
+        }
+    }
+    let v = serde_json::json!({"t": now_secs(), "r": resp});
+    let _ = std::fs::write(dir.join(format!("{:016x}.json", fnv1a(prompt))), v.to_string());
+}
+
+/// Warm-up gratis all'avvio (modelli free, costo zero): scalda exe,
+/// TLS e prompt-cache così la prima domanda vera non paga l'avvio a freddo.
+fn warm_engine(cwd: String) {
+    std::thread::spawn(move || {
+        let _ = run_opencode_args(
+            &[
+                "run",
+                "--format",
+                "json",
+                "--variant",
+                FAST_VARIANT,
+                "--dir",
+                &cwd,
+                "--auto",
+                "rispondi OK",
+            ],
+            &cwd,
+        );
+    });
+}
+
 #[tauri::command]
 fn ensure_opencode_setup(state: tauri::State<AppState>) -> Result<String, String> {
     #[cfg(target_os = "windows")]
@@ -1147,8 +1237,11 @@ fn ensure_opencode_setup(state: tauri::State<AppState>) -> Result<String, String
     fix_corrupted_db();
     let model = ensure_free_model();
     ensure_serve_daemon();
+    let cwd_now = state.cwd.lock().unwrap().clone();
     let _ = &state.cwd;
     if opencode_installed() {
+        // Scalda il motore in background: la prima domanda non paga il freddo.
+        warm_engine(cwd_now);
         let ver = opencode_version();
         if system_hit {
             Ok(format!("ok • usa il tuo opencode {ver} (non toccato) • modello: {model}"))
