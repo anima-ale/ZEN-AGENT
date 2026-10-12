@@ -51,9 +51,13 @@ if (-not $mk) {
 Write-Output ("makensis: {0}" -f $mk)
 
 $kb = [int](((Get-Item $exe).Length + (Get-Item $oc).Length) / 1024) + 600
-$outName = "ZEN-AGENT_{0}_x64-setup.exe" -f $ver
+# Nome STABILE senza versione: il manifest punta a /releases/latest/download/
+# e scarica sempre l'ultima release, mai una versione precisa.
+$outName = "ZEN-AGENT_x64-setup.exe"
 $outDir = Join-Path $root "src-tauri\target\release\bundle\nsis"
 $out = Join-Path $outDir $outName
+# Pulisce i setup versionati (nomi con versione): resta solo quello stabile
+Get-ChildItem -Path $outDir -Filter "*.exe" -ErrorAction SilentlyContinue | Where-Object { $_.Name -match "^ZEN-AGENT_[0-9].*_x64-setup\.exe$" } | Remove-Item -Force -ErrorAction SilentlyContinue
 
 $defs = @(
   ("/DVERSION={0}" -f $ver),

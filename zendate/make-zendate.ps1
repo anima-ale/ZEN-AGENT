@@ -59,14 +59,15 @@ if ([string]::IsNullOrWhiteSpace($Notes)) {
 $notesFile = Join-Path (Join-Path $kitDir $Channel) ('release-notes-' + $Version + '.txt')
 [IO.File]::WriteAllText($notesFile, $Notes, (New-Object Text.UTF8Encoding $false))
 
-# 4. URL pubblico del setup
+# 4. URL pubblico del setup: SEMPRE l'ultima release (nome file stabile
+# senza versione), mai una versione precisa.
 $FinalUrl = $Url
 if ([string]::IsNullOrWhiteSpace($FinalUrl)) {
-  if ([string]::IsNullOrWhiteSpace($User) -or [string]::IsNullOrWhiteSpace($Repo) -or [string]::IsNullOrWhiteSpace($Tag)) {
-    Write-Output '[ERRORE] Servono -User + -Repo + -Tag (es. -Tag v0.2.0)'
+  if ([string]::IsNullOrWhiteSpace($User) -or [string]::IsNullOrWhiteSpace($Repo)) {
+    Write-Output '[ERRORE] Servono -User + -Repo (es. -User anima-ale -Repo ZEN-AGENT)'
     exit 1
   }
-  $FinalUrl = 'https://github.com/' + $User + '/' + $Repo + '/releases/download/' + $Tag + '/' + ($exe.Name -replace '\s', '.')
+  $FinalUrl = 'https://github.com/' + $User + '/' + $Repo + '/releases/latest/download/' + ($exe.Name -replace '\s', '.')
 }
 
 # 5. SHA256 del setup

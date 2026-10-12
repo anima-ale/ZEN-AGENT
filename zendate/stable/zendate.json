@@ -1,6 +1,6 @@
 {
     "version":  "0.4.3",
     "notes":  "- Setup davvero autonomo su PC resettati: runtime C++ integrato (se manca si installa da solo) + registro a 64 bit (prima le chiavi finivano nella vista a 32 bit).",
-    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.4.3/ZEN-AGENT_0.4.3_x64-setup.exe",
+    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/latest/download/ZEN-AGENT_x64-setup.exe",
     "sha256":  "65a9fc5e01ada1ae3b60c4ad60aaefce507397d4443882507901fc5b3277d8fb"
 }
