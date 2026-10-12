@@ -212,6 +212,10 @@ export default function PanelApp() {
   const runPhoneRef = useRef<(pid: number, text: string) => Promise<void>>(async () => undefined);
   // Chiuso nella goccia mentre ZEN Nebula pensava: alla risposta suona la notifica
   const hiddenWhileBusy = useRef(false);
+  // Specchio sincrono di busy per i callback (coda telefono)
+  const busyRef = useRef(false);
+  // Messaggio dal telefono arrivato mentre ZEN era occupato: parte dopo
+  const pendingPhone = useRef<{ pid: number; text: string } | null>(null);
 
   // persistenza storia
   useEffect(() => {
@@ -405,14 +409,16 @@ export default function PanelApp() {
 
   const send = async () => {
     const text = prompt.trim();
-    if (!text || busy) return;
+    if (!text || busyRef.current) return;
     setPrompt("");
+    busyRef.current = true;
     setBusy(true);
     const attached = [...files];
     setFiles([]);
     push("user", attached.length ? `${text}\n[allegati: ${attached.map(fileName).join(", ")}]` : text);
     await runAgent(text, attached);
     // risposta arrivata: se eri chiuso nella goccia, notifica con suono + pallino
+    busyRef.current = false;
     setBusy(false);
     setBusySecs(0);
     api.hideGame().catch(() => undefined);
@@ -420,18 +426,29 @@ export default function PanelApp() {
       hiddenWhileBusy.current = false;
       api.notifyReady().catch(() => undefined);
     }
+    drainPhone();
+  };
+
+  // Fa partire il messaggio in coda (se libero), dopo ogni run.
+  const drainPhone = () => {
+    const p = pendingPhone.current;
+    if (!p || busyRef.current) return;
+    pendingPhone.current = null;
+    runPhone(p.pid, p.text);
   };
 
   // Messaggi dal telefono (QR): entrano nella sessione aperta come i tuoi.
   const runPhone = async (pid: number, text: string) => {
-    if (busy) {
-      push("system", "telefono: ZEN è occupato, messaggio rimandato.");
-      api.phoneAnswer(pid, "ZEN è occupato, riprova tra poco.").catch(() => undefined);
+    if (busyRef.current) {
+      pendingPhone.current = { pid, text };
+      push("system", "telefono: ZEN è occupato, messaggio in coda.");
       return;
     }
+    busyRef.current = true;
     setBusy(true);
     push("user", `telefono: ${text}`);
     const ans = await runAgent(text, []);
+    busyRef.current = false;
     setBusy(false);
     setBusySecs(0);
     api.phoneAnswer(pid, ans).catch(() => undefined);
@@ -439,6 +456,7 @@ export default function PanelApp() {
       hiddenWhileBusy.current = false;
       api.notifyReady().catch(() => undefined);
     }
+    drainPhone();
   };
   runPhoneRef.current = runPhone;
 

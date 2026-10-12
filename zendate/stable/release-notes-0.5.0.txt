@@ -1,0 +1,1 @@
+- Giro di polish: telefono in coda se ZEN è occupato (niente più "riprova"), pagina telefono con scadenza anti-poll infinito, scroll libero nelle ausiliarie già incluso, pulizia file di test.

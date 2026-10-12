@@ -1,6 +1,6 @@
 {
-    "version":  "0.4.16",
-    "notes":  "- Allegati riparati: il `--file` va dopo il prompt (prima il motore cercava il prompt come file). Path sempre assoluti, controllo esistenza con messaggio chiaro, immagini oltre 10 MB compresse da sole, stop alle HEIC illeggibili.",
+    "version":  "0.5.0",
+    "notes":  "- Giro di polish: telefono in coda se ZEN è occupato (niente più \"riprova\"), pagina telefono con scadenza anti-poll infinito, scroll libero nelle ausiliarie già incluso, pulizia file di test.",
     "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/latest/download/ZEN-AGENT_x64-setup.exe",
-    "sha256":  "6257c12b66d92dd0616a75d18f1472465480757cc1c76fc42dfcbd11f770ce23"
+    "sha256":  "1f2313c63cb8d356da2f0cd73abf5f386e06649ac08b35be38c9a1a5fbb4dd61"
 }

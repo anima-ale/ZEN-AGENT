@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.5.0]
+- Giro di polish: telefono in coda se ZEN è occupato (niente più "riprova"), pagina telefono con scadenza anti-poll infinito, scroll libero nelle ausiliarie già incluso, pulizia file di test.
+
 ## [0.4.16]
 - Allegati riparati: il `--file` va dopo il prompt (prima il motore cercava il prompt come file). Path sempre assoluti, controllo esistenza con messaggio chiaro, immagini oltre 10 MB compresse da sole, stop alle HEIC illeggibili.
 
