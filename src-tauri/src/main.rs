@@ -817,6 +817,243 @@ fn clear_response_ready(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+// ---------- collega-telefono: QR -> pagina mobile -> sessione aperta ----------
+
+#[allow(dead_code)]
+struct PhoneMsg {
+    id: u64,
+    text: String,
+    answer: Option<String>,
+}
+
+struct PhoneState {
+    running: bool,
+    port: u16,
+    token: String,
+    inbox: Vec<PhoneMsg>,
+    next_id: u64,
+}
+
+static PHONE: Mutex<PhoneState> = Mutex::new(PhoneState {
+    running: false,
+    port: 0,
+    token: String::new(),
+    inbox: Vec::new(),
+    next_id: 1,
+});
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PhoneStatus {
+    running: bool,
+    url: String,
+}
+
+fn local_ip() -> String {
+    (|| -> std::io::Result<String> {
+        let s = std::net::UdpSocket::bind("0.0.0.0:0")?;
+        s.connect("8.8.8.8:80")?;
+        Ok(s.local_addr()?.ip().to_string())
+    })()
+    .unwrap_or_else(|_| "127.0.0.1".into())
+}
+
+fn phone_url(st: &PhoneState) -> String {
+    format!("http://{}:{}/{}/", local_ip(), st.port, st.token)
+}
+
+const PHONE_PAGE: &str = r#"<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ZEN-AGENT</title><style>body{background:#0a0a09;color:#f0f0f0;font-family:Georgia,serif;margin:0;padding:20px}h1{font-weight:400;font-size:28px;margin:0 0 4px}.k{font-family:monospace;font-size:11px;color:rgb(232,176,75);letter-spacing:.08em;margin-bottom:16px}textarea{width:100%;box-sizing:border-box;background:#141414;color:#f0f0f0;border:1px solid #2a2a2a;border-radius:10px;font-size:16px;padding:12px;min-height:90px}button{width:100%;margin-top:10px;background:#141414;color:rgb(232,176,75);border:1px solid rgb(232,176,75);border-radius:10px;font-size:16px;padding:12px}#s{font-family:monospace;font-size:12px;color:#9a9a9a;margin-top:12px}#r{margin-top:12px;background:#141414;border:1px solid #2a2a2a;border-radius:10px;padding:12px;white-space:pre-wrap;font-size:15px}</style></head><body><h1>ZEN-AGENT</h1><div class="k">COLLEGATO AL PC</div><textarea id="t" placeholder="Scrivi a ZEN..."></textarea><button onclick="send()">Invia a ZEN</button><div id="s"></div><div id="r"></div><script>let id=0,tm=null;function set(s){document.getElementById('s').textContent=s}async function send(){const v=document.getElementById('t').value.trim();if(!v)return;document.getElementById('r').textContent='';set('invio...');try{const r=await fetch('send',{method:'POST',body:v});const j=await r.json();id=j.id;document.getElementById('t').value='';set('ZEN sta rispondendo...');clearInterval(tm);tm=setInterval(poll,2000)}catch(e){set('errore di rete')} }async function poll(){try{const r=await fetch('poll?id='+id);const j=await r.json();if(j.answer){clearInterval(tm);document.getElementById('r').textContent=j.answer;set('fatto')}}catch(e){}}</script></body></html>"#;
+
+fn http_reply(s: &mut std::net::TcpStream, code: &str, ctype: &str, body: &[u8]) {
+    use std::io::Write;
+    let head = format!(
+        "HTTP/1.1 {code}\r\nContent-Type: {ctype}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        body.len()
+    );
+    let _ = s.write_all(head.as_bytes());
+    let _ = s.write_all(body);
+}
+
+fn handle_phone_conn(app: &tauri::AppHandle, mut s: std::net::TcpStream, token: &str) {
+    use std::io::Read;
+    let _ = s.set_read_timeout(Some(std::time::Duration::from_secs(10)));
+    let mut buf = vec![0u8; 65536];
+    let n = match s.read(&mut buf) {
+        Ok(0) | Err(_) => return,
+        Ok(n) => n,
+    };
+    let split = buf[..n]
+        .windows(4)
+        .position(|w| w == b"\r\n\r\n")
+        .map(|i| i + 4)
+        .unwrap_or(n);
+    let head = String::from_utf8_lossy(&buf[..split.min(n)]).into_owned();
+    let mut already = &buf[split.min(n)..n];
+    let mut lines = head.lines();
+    let first = lines.next().unwrap_or("");
+    let mut fp = first.split_whitespace();
+    let method = fp.next().unwrap_or("");
+    let path = fp.next().unwrap_or("");
+    let mut clen = 0usize;
+    for ln in lines {
+        if ln.to_lowercase().starts_with("content-length:") {
+            clen = ln.split(':').nth(1).unwrap_or("0").trim().parse().unwrap_or(0);
+        }
+    }
+    let mut body: Vec<u8> = std::mem::take(&mut already).to_vec();
+    while body.len() < clen.min(65536) {
+        let mut tmp = [0u8; 4096];
+        match s.read(&mut tmp) {
+            Ok(0) | Err(_) => break,
+            Ok(k) => body.extend_from_slice(&tmp[..k]),
+        }
+    }
+    let base = format!("/{token}/");
+    if path != base.trim_end_matches('/') && !path.starts_with(&base) {
+        http_reply(&mut s, "403 Forbidden", "text/plain", b"no");
+        return;
+    }
+    let rest = path.strip_prefix(&base).unwrap_or("");
+    let (endpoint, query) = match rest.find('?') {
+        Some(i) => (&rest[..i], &rest[i + 1..]),
+        None => (rest, ""),
+    };
+    match (method, endpoint) {
+        ("GET", "") => http_reply(
+            &mut s,
+            "200 OK",
+            "text/html; charset=utf-8",
+            PHONE_PAGE.as_bytes(),
+        ),
+        ("POST", "send") => {
+            let text = truncate(String::from_utf8_lossy(&body).trim(), 4000);
+            if text.trim().is_empty() {
+                http_reply(&mut s, "400 Bad Request", "text/plain", b"vuoto");
+                return;
+            }
+            let id = {
+                let mut st = PHONE.lock().unwrap();
+                let id = st.next_id;
+                st.next_id += 1;
+                st.inbox.push(PhoneMsg { id, text: text.clone(), answer: None });
+                while st.inbox.len() > 20 {
+                    st.inbox.remove(0);
+                }
+                id
+            };
+            let _ = app.emit(
+                "zen-phone-message",
+                serde_json::json!({"id": id, "text": text}),
+            );
+            http_reply(
+                &mut s,
+                "200 OK",
+                "application/json",
+                serde_json::json!({"id": id}).to_string().as_bytes(),
+            );
+        }
+        ("GET", "poll") => {
+            let mut qid = 0u64;
+            for kv in query.split('&') {
+                if let Some((k, v)) = kv.split_once('=') {
+                    if k == "id" {
+                        qid = v.parse().unwrap_or(0);
+                    }
+                }
+            }
+            let ans: Option<String> = PHONE
+                .lock()
+                .unwrap()
+                .inbox
+                .iter()
+                .find(|m| m.id == qid)
+                .and_then(|m| m.answer.clone());
+            http_reply(
+                &mut s,
+                "200 OK",
+                "application/json",
+                serde_json::json!({"answer": ans}).to_string().as_bytes(),
+            );
+        }
+        _ => http_reply(&mut s, "404 Not Found", "text/plain", b"no"),
+    }
+}
+
+fn phone_serve(app: tauri::AppHandle, listener: std::net::TcpListener, token: String) {
+    let _ = listener.set_nonblocking(true);
+    loop {
+        {
+            let st = PHONE.lock().unwrap();
+            if !st.running {
+                break;
+            }
+        }
+        match listener.accept() {
+            Ok((stream, _)) => handle_phone_conn(&app, stream, &token),
+            Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                std::thread::sleep(std::time::Duration::from_millis(200));
+            }
+            Err(_) => break,
+        }
+    }
+}
+
+#[tauri::command]
+fn phone_start(app: tauri::AppHandle) -> Result<String, String> {
+    {
+        let st = PHONE.lock().unwrap();
+        if st.running {
+            return Ok(phone_url(&st));
+        }
+    }
+    // Prima accensione: Windows può chiedere una conferma firewall, una volta sola.
+    let listener =
+        std::net::TcpListener::bind("0.0.0.0:0").map_err(|e| format!("rete occupata: {e}"))?;
+    let port = listener.local_addr().map_err(|e| e.to_string())?.port();
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    static PHONE_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+    let token = format!(
+        "z{:x}{:x}",
+        nanos,
+        PHONE_SEQ.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+    );
+    {
+        let mut st = PHONE.lock().unwrap();
+        st.running = true;
+        st.port = port;
+        st.token = token.clone();
+    }
+    let app2 = app.clone();
+    std::thread::spawn(move || phone_serve(app2, listener, token));
+    Ok(phone_url(&PHONE.lock().unwrap()))
+}
+
+#[tauri::command]
+fn phone_stop() -> Result<(), String> {
+    PHONE.lock().unwrap().running = false;
+    Ok(())
+}
+
+#[tauri::command]
+fn phone_status() -> PhoneStatus {
+    let st = PHONE.lock().unwrap();
+    PhoneStatus {
+        running: st.running,
+        url: if st.running { phone_url(&st) } else { String::new() },
+    }
+}
+
+#[tauri::command]
+fn phone_answer(id: u64, text: String) -> Result<(), String> {
+    let mut st = PHONE.lock().unwrap();
+    if let Some(m) = st.inbox.iter_mut().find(|m| m.id == id) {
+        m.answer = Some(truncate(&text, 12000));
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn hide_panel(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(w) = app.get_webview_window("panel") {
@@ -1835,7 +2072,11 @@ fn main() {
             install_update,
             repair_opencode_db,
             set_drop_pinned,
-            set_drop_dragging
+            set_drop_dragging,
+            phone_start,
+            phone_stop,
+            phone_status,
+            phone_answer
         ])
         .setup(move |app| {
             // Tray: resta attivo anche a tutto chiuso

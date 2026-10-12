@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.4.11]
+- Collega-telefono: nelle impostazioni il tasto crea-QR accende un mini-server con token e mostra QR + link. Scannerizzi con qualsiasi telefono (stesso Wi-Fi), scrivi nella pagina e il messaggio entra nella sessione aperta sul PC con risposta che torna anche al telefono.
+
 ## [0.4.10]
 - Anti-narrazione: regola fissa davanti a ogni richiesta (chat e programmate) + scarto del testo pre-azione quando usa strumenti. Restano solo fatti e conferme: ideale per "apri chrome" e domande velocissime.
 

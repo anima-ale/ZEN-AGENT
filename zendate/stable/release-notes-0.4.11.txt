@@ -1,0 +1,1 @@
+- Collega-telefono: nelle impostazioni il tasto crea-QR accende un mini-server con token e mostra QR + link. Scannerizzi con qualsiasi telefono (stesso Wi-Fi), scrivi nella pagina e il messaggio entra nella sessione aperta sul PC con risposta che torna anche al telefono.

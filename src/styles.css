@@ -545,6 +545,23 @@ body[data-graphics="neo"] *:not(.unified-input-wrapper):not(.unified-input-wrapp
 #snake-btn:hover { color: var(--text); border-color: var(--border-strong); background: var(--relief); }
 #snake-btn:active { transform: scale(0.95); }
 
+#phone-qr {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+#phone-qr-img { background: #fff; padding: 10px; border-radius: 10px; }
+#phone-qr-img img { display: block; width: 180px; height: 180px; }
+#phone-url {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-sub);
+  word-break: break-all;
+}
+#phone-note { font-size: 11px; color: var(--text-sub); }
+
 /* ============ markdown NEO1 (solo cornice) ============ */
 .msg.agent.md .md-p { margin: 0 0 6px; }
 .msg.agent.md .md-ok {

@@ -202,6 +202,8 @@ export default function PanelApp() {
   const scrollRef = useRef<HTMLDivElement>(null);
   // id del messaggio agente in volo: qui si accumulano inizio + OK live
   const liveId = useRef<number | null>(null);
+  // handler telefono sempre fresco per i listener registrati una volta sola
+  const runPhoneRef = useRef<(pid: number, text: string) => Promise<void>>(async () => undefined);
   // Chiuso nella goccia mentre ZEN Nebula pensava: alla risposta suona la notifica
   const hiddenWhileBusy = useRef(false);
 
@@ -339,6 +341,12 @@ export default function PanelApp() {
           if (alive) setThinking(e.payload);
         }),
       );
+      if (!alive) return;
+      unlistens.push(
+        await listen<{ id: number; text: string }>("zen-phone-message", (e) => {
+          if (alive) runPhoneRef.current(e.payload.id, e.payload.text);
+        }),
+      );
     })();
     return () => {
       alive = false;
@@ -351,6 +359,32 @@ export default function PanelApp() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, busy]);
 
+  // Nucleo invio: crea il messaggio agente live e ritorna la risposta finale.
+  // Usato sia dal composer sia dai messaggi arrivati dal telefono.
+  const runAgent = async (promptText: string, attached: string[]): Promise<string> => {
+    const id = nextId++;
+    liveId.current = id;
+    setThinking(null);
+    setMessages((m) => [...m, { id, who: "agent", text: "" }]);
+    try {
+      const out = await api.run(promptText, auto, attached);
+      const finalText = out || "(nessun output)";
+      setMessages((m) =>
+        m.map((msg) => (msg.id === id ? { ...msg, text: msg.text ? `${msg.text}\n${finalText}` : finalText } : msg)),
+      );
+      return finalText;
+    } catch (e) {
+      const err = String(e);
+      setMessages((m) => m.map((msg) => (msg.id === id ? { ...msg, text: "Errore: " + err } : msg)));
+      if (err.includes("no session table")) setNeedsRepair(true);
+      return "Errore: " + err;
+    } finally {
+      // risposta arrivata: pensieri in grigio spariscono, resta inizio + OK + risposta
+      liveId.current = null;
+      setThinking(null);
+    }
+  };
+
   const send = async () => {
     const text = prompt.trim();
     if (!text || busy) return;
@@ -359,35 +393,36 @@ export default function PanelApp() {
     const attached = [...files];
     setFiles([]);
     push("user", attached.length ? `${text}\n[allegati: ${attached.map(fileName).join(", ")}]` : text);
-    const id = nextId++;
-    liveId.current = id;
-    setThinking(null);
-    setMessages((m) => [...m, { id, who: "agent", text: "" }]);
-    try {
-      const out = await api.run(text, auto, attached);
-      setMessages((m) =>
-        m.map((msg) =>
-          msg.id === id ? { ...msg, text: msg.text ? `${msg.text}\n${out || "(nessun output)"}` : out || "(nessun output)" } : msg,
-        ),
-      );
-    } catch (e) {
-      const err = String(e);
-      setMessages((m) => m.map((msg) => (msg.id === id ? { ...msg, text: "Errore: " + err } : msg)));
-      if (err.includes("no session table")) setNeedsRepair(true);
-    } finally {
-      // risposta arrivata: pensieri in grigio spariscono, resta inizio + OK + risposta
-      liveId.current = null;
-      setThinking(null);
-      // risposta arrivata: se eri chiuso nella goccia, notifica con suono + pallino
-      setBusy(false);
-      setBusySecs(0);
-      api.hideGame().catch(() => undefined);
-      if (hiddenWhileBusy.current) {
-        hiddenWhileBusy.current = false;
-        api.notifyReady().catch(() => undefined);
-      }
+    await runAgent(text, attached);
+    // risposta arrivata: se eri chiuso nella goccia, notifica con suono + pallino
+    setBusy(false);
+    setBusySecs(0);
+    api.hideGame().catch(() => undefined);
+    if (hiddenWhileBusy.current) {
+      hiddenWhileBusy.current = false;
+      api.notifyReady().catch(() => undefined);
     }
   };
+
+  // Messaggi dal telefono (QR): entrano nella sessione aperta come i tuoi.
+  const runPhone = async (pid: number, text: string) => {
+    if (busy) {
+      push("system", "telefono: ZEN è occupato, messaggio rimandato.");
+      api.phoneAnswer(pid, "ZEN è occupato, riprova tra poco.").catch(() => undefined);
+      return;
+    }
+    setBusy(true);
+    push("user", `telefono: ${text}`);
+    const ans = await runAgent(text, []);
+    setBusy(false);
+    setBusySecs(0);
+    api.phoneAnswer(pid, ans).catch(() => undefined);
+    if (hiddenWhileBusy.current) {
+      hiddenWhileBusy.current = false;
+      api.notifyReady().catch(() => undefined);
+    }
+  };
+  runPhoneRef.current = runPhone;
 
   const doRepair = async () => {
     setRepairing(true);

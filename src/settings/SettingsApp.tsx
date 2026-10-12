@@ -62,6 +62,7 @@ export default function SettingsApp() {
   const [sound, setSound] = useState("ding");
   const [pos, setPos] = useState("top");
   const [msg, setMsg] = useState("");
+  const [phoneUrl, setPhoneUrl] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     try {
@@ -75,6 +76,10 @@ export default function SettingsApp() {
     } catch { /* ignora */ }
     try {
       setPos(await api.getDropPosition());
+    } catch { /* ignora */ }
+    try {
+      const ph = await api.phoneStatus();
+      setPhoneUrl(ph.running ? ph.url : null);
     } catch { /* ignora */ }
   }, []);
 
@@ -126,6 +131,32 @@ export default function SettingsApp() {
     }
   };
 
+  const togglePhone = async () => {
+    try {
+      if (phoneUrl) {
+        await api.phoneStop();
+        setPhoneUrl(null);
+        setMsg("collegamento telefono spento.");
+      } else {
+        const url = await api.phoneStart();
+        setPhoneUrl(url);
+        setMsg("scannerizza il QR con il telefono (stesso Wi-Fi).");
+      }
+    } catch (e) {
+      setMsg("telefono fallito: " + String(e));
+    }
+  };
+
+  const copyPhone = async () => {
+    if (!phoneUrl) return;
+    try {
+      await navigator.clipboard.writeText(phoneUrl);
+      setMsg("link copiato negli appunti.");
+    } catch {
+      setMsg(phoneUrl);
+    }
+  };
+
   return (
     <div id="aux-root">
       <div id="aux-card">
@@ -169,6 +200,26 @@ export default function SettingsApp() {
               </button>
             ))}
           </div>
+
+          <div className="aux-label">TELEFONO</div>
+          <div id="set-row">
+            <button className={`chan ${phoneUrl ? "on" : ""}`} onClick={togglePhone}>
+              {phoneUrl ? "scollega telefono" : "crea QR collega-telefono"}
+            </button>
+          </div>
+          {phoneUrl && (
+            <div id="phone-qr">
+              <div id="phone-qr-img">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(phoneUrl)}`}
+                  alt="QR collega-telefono"
+                />
+              </div>
+              <div id="phone-url">{phoneUrl}</div>
+              <button className="chan" onClick={copyPhone}>copia link</button>
+              <div id="phone-note">stesso Wi-Fi del PC · chi ha il QR può scrivere a ZEN</div>
+            </div>
+          )}
 
           {msg && <div id="task-msg">{msg}</div>}
         </div>

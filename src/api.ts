@@ -73,7 +73,17 @@ export const api = {
   getChannel: () => invoke<string>("get_update_channel"),
   setChannel: (channel: string) =>
     invoke<void>("set_update_channel", { channel }),
+  phoneStart: () => invoke<string>("phone_start"),
+  phoneStop: () => invoke<void>("phone_stop"),
+  phoneStatus: () => invoke<PhoneStatus>("phone_status"),
+  phoneAnswer: (id: number, text: string) =>
+    invoke<void>("phone_answer", { id, text }),
 };
+
+export interface PhoneStatus {
+  running: boolean;
+  url: string;
+}
 
 export function onFilesDropped(cb: (paths: string[]) => void): Promise<UnlistenFn> {
   return listen<string[]>("zen-files-dropped", (e) => cb(e.payload));
