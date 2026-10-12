@@ -1,0 +1,1 @@
+- Pensiero sempre al minimo: ogni run usa `--variant minimal` (reasoning effort ridotto, risposta quasi istantanea), anche nelle attività programmate. Se un provider rifiuta la variante, scala da solo senza rompere nulla.

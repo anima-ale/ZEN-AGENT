@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.4.7]
+- Pensiero sempre al minimo: ogni run usa `--variant minimal` (reasoning effort ridotto, risposta quasi istantanea), anche nelle attività programmate. Se un provider rifiuta la variante, scala da solo senza rompere nulla.
+
 ## [0.4.6]
 - Motore sempre il più nuovo: a runtime vince la versione maggiore tra sistema e integrato (mai più pin alla 1.19.0). Se opencode c'è già, non si installa né disinstalla nulla. Se manca ovunque, scarica sempre l'ultima via npm. Vendor aggiornato all'ultima prima di ogni build. Risposte vuote mai più mute: ora dicono che serve il login.
 

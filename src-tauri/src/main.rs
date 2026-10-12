@@ -28,6 +28,8 @@ const FREE_MODEL_PRIORITY: &[&str] = &[
 ];
 const DEFAULT_FREE_MODEL: &str = "opencode/muse-spark-1.3-contributor-free";
 const DEFAULT_FREE_SMALL_MODEL: &str = "opencode/nemotron-3.5-lightning-free";
+/// Pensiero sempre al minimo: reasoning effort ridotto (quasi istantaneo).
+const FAST_VARIANT: &str = "minimal";
 const SERVE_PORT: u16 = 4096;
 
 // ZENdate (come KOA Browser): manifest su GitHub raw + setup exe nelle Release.
@@ -647,15 +649,23 @@ fn spawn_task_scheduler(app: tauri::AppHandle, state: AppState) {
                         "default",
                         "--attach",
                         &format!("http://127.0.0.1:{SERVE_PORT}"),
+                        "--variant",
+                        FAST_VARIANT,
                         "--dir",
                         &cwd,
                         &prompt,
                     ],
                     &cwd,
                 );
-                // se attach fallisce (serve giù), prova diretto
+                // se attach fallisce (serve giù), prova diretto (prima veloce, poi pieno)
                 if res.is_err() {
-                    let _ = run_opencode_args(&["run", "--dir", &cwd, &prompt], &cwd);
+                    let r2 = run_opencode_args(
+                        &["run", "--variant", FAST_VARIANT, "--dir", &cwd, &prompt],
+                        &cwd,
+                    );
+                    if r2.is_err() {
+                        let _ = run_opencode_args(&["run", "--dir", &cwd, &prompt], &cwd);
+                    }
                 }
                 t.next_run = if t.time_daily.is_some() {
                     now + 82800 // 23h: non riscattare nello stesso minuto
@@ -841,11 +851,17 @@ async fn agent_run(
             let refs: Vec<&str> = argv.iter().map(|s| s.as_str()).collect();
             run_opencode_args(&refs, &cwd)
         };
-        let build_run = |with_attach: bool, text: &str, files: &[String]| -> Vec<String> {
+        let build_run = |with_attach: bool, fast: bool, text: &str, files: &[String]| -> Vec<String> {
             let mut v: Vec<String> = vec!["run".into(), "--format".into(), "default".into()];
             if with_attach {
                 v.push("--attach".into());
                 v.push(attach.clone());
+            }
+            if fast {
+                // Pensiero SEMPRE al minimo: reasoning effort ridotto,
+                // risposta quasi istantanea.
+                v.push("--variant".into());
+                v.push(FAST_VARIANT.into());
             }
             v.push("--dir".into());
             v.push(cwd.clone());
@@ -881,10 +897,17 @@ async fn agent_run(
         // da solo nel suo loop agente; ogni header in più diventa solo un
         // pretesto per chiedere all'utente invece di eseguire.
         let final_prompt = prompt_text;
-        let out = match run_with(build_run(true, &final_prompt, &files)) {
-            Ok(out) => Ok(truncate(&out, 12000)),
-            Err(_) => run_with(build_run(false, &final_prompt, &files)).map(|o| truncate(&o, 12000)),
-        };
+        // Tentativi in ordine: attach+veloce, attach, diretto+veloce, diretto.
+        // Se un provider rifiuta la variante veloce, si scala senza rompere nulla.
+        let mut out = run_with(build_run(true, true, &final_prompt, &files))
+            .map(|o| truncate(&o, 12000));
+        for (att, fast) in [(true, false), (false, true), (false, false)] {
+            if out.is_ok() {
+                break;
+            }
+            out = run_with(build_run(att, fast, &final_prompt, &files))
+                .map(|o| truncate(&o, 12000));
+        }
         if let Some(p) = temp_path {
             let _ = std::fs::remove_file(&p);
         }
