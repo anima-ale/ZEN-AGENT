@@ -1,6 +1,6 @@
 {
-    "version":  "0.4.5",
-    "notes":  "- Autonomia TOTALE nel setup bianco: motore e runtime C++ integrati come risorse (niente Node/npm), exe con CRT statico, runtime auto-installato al primo avvio se manca.",
+    "version":  "0.4.6",
+    "notes":  "- Motore sempre il più nuovo: a runtime vince la versione maggiore tra sistema e integrato (mai più pin alla 1.19.0). Se opencode c\u0027è già, non si installa né disinstalla nulla. Se manca ovunque, scarica sempre l\u0027ultima via npm. Vendor aggiornato all\u0027ultima prima di ogni build. Risposte vuote mai più mute: ora dicono che serve il login.",
     "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/latest/download/ZEN-AGENT_x64-setup.exe",
-    "sha256":  "20619b8105fbd1935fc1e96e9b090f474d4c3aa452fa4523e24d6cf0ddef0457"
+    "sha256":  "9ba2c6e114b8452879373cf036a7ebdbd2d2d49b01565cca06645f048188392d"
 }

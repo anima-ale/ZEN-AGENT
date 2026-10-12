@@ -246,20 +246,60 @@ fn ensure_windows_deps() {
 /// EXE reale di opencode, senza passare da cmd.exe.
 /// cmd tratta gli a capo come separatori di comando e taglia i prompt
 /// multilinea alla prima riga (il resto muore lì).
-fn direct_opencode_exe() -> Option<PathBuf> {
-    // 1. Integrato nel setup (cartella vendor): PC autonomo, niente Node/npm.
-    // 2. Accanto al nostro exe (vecchi setup scuri).
-    if let Ok(me) = std::env::current_exe() {
-        if let Some(dir) = me.parent() {
-            for cand in [dir.join("vendor").join("opencode.exe"), dir.join("opencode.exe")] {
-                if cand.is_file() {
-                    return Some(cand);
-                }
+/// Scelta SEMPRE la versione più nuova tra sistema e integrato:
+/// se l'utente ha già opencode, quello resta e viene usato (mai
+/// sovrascritto né disinstallato); il vendor è solo fallback offline.
+fn opencode_version_of(path: &std::path::Path) -> Option<String> {
+    let mut c = std::process::Command::new(path);
+    #[cfg(target_os = "windows")]
+    silence(&mut c);
+    c.arg("--version")
+        .stdin(Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .output()
+        .ok()
+        .and_then(|o| {
+            if !o.status.success() {
+                return None;
             }
+            let s = String::from_utf8_lossy(&o.stdout)
+                .trim()
+                .lines()
+                .next()
+                .unwrap_or("")
+                .to_string();
+            if s.is_empty() {
+                None
+            } else {
+                Some(s)
+            }
+        })
+}
+
+/// "1.19.0" (o "opencode 1.19.0") -> (1,19,0). Sconosciuto -> (0,0,0).
+fn parse_semver_triplet(s: &str) -> (u64, u64, u64) {
+    let mut tok = String::new();
+    for ch in s.chars() {
+        if ch.is_ascii_digit() || ch == '.' {
+            tok.push(ch);
+        } else if !tok.is_empty() && tok.contains('.') {
+            break;
+        } else {
+            tok.clear();
         }
     }
-    // 2. Posizione standard npm global su Windows:
-    // %APPDATA%\npm\node_modules\opencode-ai\bin\opencode.exe
+    let mut n = [0u64; 3];
+    for (i, p) in tok.split('.').take(3).enumerate() {
+        n[i] = p.parse().unwrap_or(0);
+    }
+    (n[0], n[1], n[2])
+}
+
+/// Copie di sistema (npm global + PATH). Esclude le nostre cartelle vendor:
+/// quelle sono fallback, non "già messo nel PC".
+fn system_opencode_exes() -> Vec<PathBuf> {
+    let mut v: Vec<PathBuf> = vec![];
     if let Ok(appdata) = std::env::var("APPDATA") {
         let p = PathBuf::from(appdata)
             .join("npm")
@@ -268,10 +308,9 @@ fn direct_opencode_exe() -> Option<PathBuf> {
             .join("bin")
             .join("opencode.exe");
         if p.is_file() {
-            return Some(p);
+            v.push(p);
         }
     }
-    // 3. Primo .exe reale trovato via where
     if let Ok(out) = {
         let mut c = std::process::Command::new("cmd");
         #[cfg(target_os = "windows")]
@@ -281,12 +320,55 @@ fn direct_opencode_exe() -> Option<PathBuf> {
         let txt = String::from_utf8_lossy(&out.stdout);
         for line in txt.lines() {
             let t = line.trim();
-            if t.to_lowercase().ends_with(".exe") && PathBuf::from(t).is_file() {
-                return Some(PathBuf::from(t));
+            let low = t.to_lowercase();
+            if !low.ends_with(".exe") {
+                continue;
+            }
+            // mai la nostra copia integrata
+            if low.contains("zen-agent") {
+                continue;
+            }
+            let pb = PathBuf::from(t);
+            if pb.is_file() && !v.contains(&pb) {
+                v.push(pb);
             }
         }
     }
-    None
+    v
+}
+
+fn vendor_opencode_exes() -> Vec<PathBuf> {
+    let mut v: Vec<PathBuf> = vec![];
+    if let Ok(me) = std::env::current_exe() {
+        if let Some(dir) = me.parent() {
+            for cand in [dir.join("vendor").join("opencode.exe"), dir.join("opencode.exe")] {
+                if cand.is_file() {
+                    v.push(cand);
+                }
+            }
+        }
+    }
+    v
+}
+
+/// La più nuova tra sistema e integrato. A pari versione vince il sistema
+/// (quello dell'utente non si tocca).
+fn best_opencode_exe() -> Option<PathBuf> {
+    let mut ranked: Vec<(PathBuf, bool, (u64, u64, u64))> = vec![];
+    for p in system_opencode_exes() {
+        let s = opencode_version_of(&p).unwrap_or_default();
+        ranked.push((p, true, parse_semver_triplet(&s)));
+    }
+    for p in vendor_opencode_exes() {
+        let s = opencode_version_of(&p).unwrap_or_default();
+        ranked.push((p, false, parse_semver_triplet(&s)));
+    }
+    ranked.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| b.1.cmp(&a.1)));
+    ranked.into_iter().next().map(|(p, _, _)| p)
+}
+
+fn direct_opencode_exe() -> Option<PathBuf> {
+    best_opencode_exe()
 }
 
 /// Costruisce il comando opencode: diretto all'exe quando possibile
@@ -343,6 +425,17 @@ fn run_opencode_args(args: &[&str], cwd: &str) -> Result<String, String> {
     let stdout = String::from_utf8_lossy(&out.stdout).to_string();
     let stderr = String::from_utf8_lossy(&out.stderr).to_string();
     if out.status.success() {
+        // Mai più "(nessun output)" muto: se lo stdout è vuoto ma c'è
+        // qualcosa su stderr (login mancato, modello, rete) lo mostriamo.
+        if stdout.trim().is_empty() {
+            if !stderr.trim().is_empty() {
+                return Err(format!("opencode risposta vuota: {}", stderr.trim()));
+            }
+            if !args.contains(&"--version") {
+                return Err("opencode ha risposto vuoto: rifai il login (Zen usa i modelli gratis, serve un OAuth) e riprova."
+                    .to_string());
+            }
+        }
         Ok(stdout)
     } else {
         Err(format!("opencode errore: {stderr}{stdout}"))
@@ -864,8 +957,11 @@ fn truncate(s: &str, max: usize) -> String {
 fn ensure_opencode_setup(state: tauri::State<AppState>) -> Result<String, String> {
     #[cfg(target_os = "windows")]
     ensure_windows_deps();
+    // Se c'è già quello di sistema: NON si installa e NON si disinstalla
+    // nulla. Lo si usa così com'è (è sempre il più nuovo a vincere).
+    let system_hit = !system_opencode_exes().is_empty();
     if !opencode_installed() {
-        // Prova installazione automatica via npm (Node è prerequisito del setup).
+        // Niente da nessuna parte: scarica SEMPRE l'ultima via npm.
         #[cfg(target_os = "windows")]
         {
             let mut c = std::process::Command::new("cmd");
@@ -879,13 +975,22 @@ fn ensure_opencode_setup(state: tauri::State<AppState>) -> Result<String, String
                 .args(["i", "-g", "opencode-ai@latest"])
                 .status();
         }
+        // cache status da buttare: il mondo è cambiato
+        if let Ok(mut c) = STATUS_CACHE.lock() {
+            *c = (false, String::new(), 0);
+        }
     }
     fix_corrupted_db();
     let model = ensure_free_model();
     ensure_serve_daemon();
     let _ = &state.cwd;
     if opencode_installed() {
-        Ok(format!("ok • modello: {model}"))
+        let ver = opencode_version();
+        if system_hit {
+            Ok(format!("ok • usa il tuo opencode {ver} (non toccato) • modello: {model}"))
+        } else {
+            Ok(format!("ok • motore integrato {ver} (sistema assente) • modello: {model}"))
+        }
     } else {
         Err("opencode non trovato: installa Node LTS poi rilancia (il setup .exe lo fa da solo)".into())
     }

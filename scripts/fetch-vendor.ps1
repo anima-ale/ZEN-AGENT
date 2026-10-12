@@ -1,5 +1,8 @@
 # ZEN-AGENT - scarica i binari vendor in src-tauri/vendor/ (NON committati).
 # Va lanciato PRIMA di tauri build (build-exe.bat lo fa da solo).
+# Il vendor è SEMPRE l'ultima release npm: aggiorna prima di copiare.
+# Se opencode esiste già sul PC utente NON viene mai toccato a runtime
+# (vedi best_opencode_exe in main.rs): il vendor è solo fallback offline.
 # Uso: powershell -ExecutionPolicy Bypass -File scripts/fetch-vendor.ps1
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
@@ -7,10 +10,13 @@ Set-Location $root
 $vendor = Join-Path $root "src-tauri\vendor"
 if (-not (Test-Path $vendor)) { New-Item -ItemType Directory -Force $vendor | Out-Null }
 
+Write-Output "npm: aggiorno opencode-ai all'ultima release..."
+& cmd /C "npm i -g opencode-ai@latest" | Out-Null
 $oc = "C:\Users\giova\AppData\Roaming\npm\node_modules\opencode-ai\bin\opencode.exe"
 if (-not (Test-Path $oc)) { Write-Output "[ERRORE] opencode.exe non trovato."; exit 1 }
 Copy-Item $oc (Join-Path $vendor "opencode.exe") -Force
-Write-Output ("vendor: opencode.exe ({0} MB)" -f [math]::Round((Get-Item (Join-Path $vendor "opencode.exe")).Length / 1MB, 1))
+$vv = (& (Join-Path $vendor "opencode.exe") --version) | Select-Object -First 1
+Write-Output ("vendor: opencode.exe {0} ({1} MB)" -f $vv.Trim(), [math]::Round((Get-Item (Join-Path $vendor "opencode.exe")).Length / 1MB, 1))
 
 $vc = Get-ChildItem -Path "C:\Program Files (x86)\Microsoft Visual Studio\*\BuildTools\VC\Redist\MSVC\*\vc_redist.x64.exe" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if (-not $vc) { Write-Output "[ERRORE] vc_redist.x64.exe non trovato."; exit 1 }

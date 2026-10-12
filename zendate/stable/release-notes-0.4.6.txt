@@ -1,0 +1,1 @@
+- Motore sempre il più nuovo: a runtime vince la versione maggiore tra sistema e integrato (mai più pin alla 1.19.0). Se opencode c'è già, non si installa né disinstalla nulla. Se manca ovunque, scarica sempre l'ultima via npm. Vendor aggiornato all'ultima prima di ogni build. Risposte vuote mai più mute: ora dicono che serve il login.
