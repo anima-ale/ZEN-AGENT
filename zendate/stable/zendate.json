@@ -1,6 +1,6 @@
 {
-    "version":  "0.7.0",
-    "notes":  "- TITAN simultaneo: capisce ed esegue mentre parli (ogni azione completa parte subito in parallelo, riepilogo parlato alla fine). Endpointing a 1,2s per i comandi secchi. Chiusura automatica dopo 10s senza parole per lui.",
+    "version":  "0.7.1",
+    "notes":  "- Splitter vocale corretto: la \"e\" solitaria non spezza più le liste (\"q1.txt e q2.txt\" resta unito), aggiunte varianti \"e dopo/e quindi/e allora\". I frammenti ereditano il pezzo prima come contesto.",
     "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/latest/download/ZEN-AGENT_x64-setup.exe",
-    "sha256":  "d0868ca60cf9e9289e063c8f32c315f9795839d2b7200763b5e5204c9759e1c5"
+    "sha256":  "eb59b069ba7464df988edafd2c29e308658852103c2f5e2ed316369ef4d3f16f"
 }

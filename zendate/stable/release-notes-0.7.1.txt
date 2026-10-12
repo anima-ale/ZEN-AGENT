@@ -1,0 +1,1 @@
+- Splitter vocale corretto: la "e" solitaria non spezza più le liste ("q1.txt e q2.txt" resta unito), aggiunte varianti "e dopo/e quindi/e allora". I frammenti ereditano il pezzo prima come contesto.

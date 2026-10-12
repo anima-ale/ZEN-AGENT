@@ -9,7 +9,7 @@ RULE = ("REGOLA FISSA: lavora in silenzio, non annunciare mai nulla prima o "
         "in italiano col solo esito (es. Fatto.). Se rispondi a una domanda: "
         "risposta diretta e breve, in italiano. Mai come ci sei arrivato, "
         "mai errori o tentativi incontrati.")
-CONN = re.compile(r"(\s+e\s+poi\s+|\s+poi\s+|\s+e\s+|\s+dopo\s+|\s+quindi\s+|\s+allora\s+|,\s*)",
+CONN = re.compile(r"(\s+e\s+poi\s+|\s+e\s+dopo\s+|\s+e\s+quindi\s+|\s+e\s+allora\s+|\s+poi\s+|\s+dopo\s+|\s+quindi\s+|\s+allora\s+|,\s*)",
                   re.I)
 
 def clean_seg(s: str) -> str:

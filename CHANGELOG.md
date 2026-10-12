@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.7.1]
+- Splitter vocale corretto: la "e" solitaria non spezza più le liste ("q1.txt e q2.txt" resta unito), aggiunte varianti "e dopo/e quindi/e allora". I frammenti ereditano il pezzo prima come contesto.
+
 ## [0.7.0]
 - TITAN simultaneo: capisce ed esegue mentre parli (ogni azione completa parte subito in parallelo, riepilogo parlato alla fine). Endpointing a 1,2s per i comandi secchi. Chiusura automatica dopo 10s senza parole per lui.
 

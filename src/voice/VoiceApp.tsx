@@ -8,7 +8,7 @@ import { api } from "../api";
 
 type Phase = "idle" | "cmd" | "busy" | "done";
 
-const CONN = /(\s+e\s+poi\s+|\s+poi\s+|\s+e\s+|\s+dopo\s+|\s+quindi\s+|\s+allora\s+|,\s*)/i;
+const CONN = /(\s+e\s+poi\s+|\s+e\s+dopo\s+|\s+e\s+quindi\s+|\s+e\s+allora\s+|\s+poi\s+|\s+dopo\s+|\s+quindi\s+|\s+allora\s+|,\s*)/i;
 const IDLE_MS = 10000;
 const ENDPOINT_MS = 1200;
 
