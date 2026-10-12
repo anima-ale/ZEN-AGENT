@@ -1,6 +1,6 @@
 {
-    "version":  "0.4.0",
-    "notes":  "- Dove esce ZEN (impostazioni): sopra, sotto a sinistra sopra la barra app, lato sinistro o destro. Tracking, finestra e gesto di trascinamento seguono il bordo scelto.",
-    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.4.0/ZEN-AGENT_0.4.0_x64-setup.exe",
-    "sha256":  "07d36f9cd96db21014a490c4176ba48c2d5aef6f706318ec59c58b82f5d88c72"
+    "version":  "0.4.1",
+    "notes":  "- Logo tuo ovunque: icone exe/setup/tray rigenerate dal tuo PNG; setup con header e sidebar scuri NEO1 (nero + filetto oro).",
+    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.4.1/ZEN-AGENT_0.4.1_x64-setup.exe",
+    "sha256":  "7a7382730268d2d741ae24e3876a4d3bd1cb28b5de9b44dd7d5749c0bb906743"
 }

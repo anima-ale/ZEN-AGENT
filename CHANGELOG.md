@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.4.1]
+- Logo tuo ovunque: icone exe/setup/tray rigenerate dal tuo PNG; setup con header e sidebar scuri NEO1 (nero + filetto oro).
+
 ## [0.4.0]
 - Dove esce ZEN (impostazioni): sopra, sotto a sinistra sopra la barra app, lato sinistro o destro. Tracking, finestra e gesto di trascinamento seguono il bordo scelto.
 
