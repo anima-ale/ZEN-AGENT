@@ -1,6 +1,6 @@
 {
-    "version":  "0.4.2",
-    "notes":  "- Setup riscritto a mano in NSIS tutto scuro NEO1 (niente più pagine bianche): sidebar col logo, testi chiari su nero, oro per i titoli. Stesse cartelle/chiavi di prima + /S silenzioso per l\u0027auto-update.",
-    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.4.2/ZEN-AGENT_0.4.2_x64-setup.exe",
-    "sha256":  "d5f903c3b1932cc6043511a4c2af8befb41f24bb7d1ef461c726a8f5e84238e6"
+    "version":  "0.4.3",
+    "notes":  "- Setup davvero autonomo su PC resettati: runtime C++ integrato (se manca si installa da solo) + registro a 64 bit (prima le chiavi finivano nella vista a 32 bit).",
+    "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/download/v0.4.3/ZEN-AGENT_0.4.3_x64-setup.exe",
+    "sha256":  "65a9fc5e01ada1ae3b60c4ad60aaefce507397d4443882507901fc5b3277d8fb"
 }

@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.4.3]
+- Setup davvero autonomo su PC resettati: runtime C++ integrato (se manca si installa da solo) + registro a 64 bit (prima le chiavi finivano nella vista a 32 bit).
+
 ## [0.4.2]
 - Setup riscritto a mano in NSIS tutto scuro NEO1 (niente più pagine bianche): sidebar col logo, testi chiari su nero, oro per i titoli. Stesse cartelle/chiavi di prima + /S silenzioso per l'auto-update.
 

@@ -97,6 +97,10 @@ Var DataHwnd
 ; ============================================================
 
 Function .onInit
+  SetShellVarContext current
+  ${If} ${RunningX64}
+    SetRegView 64
+  ${EndIf}
   ; Sidebar scura per le pagine
   File "/oname=$TEMP\zen-side.bmp" "${SIDEBAR}"
   ; Ripristina la cartella precedente (update /S)
@@ -236,6 +240,26 @@ Function KillOrAskApp
   ${EndIf}
 FunctionEnd
 
+Section "Runtime C++"
+  ; Serve all'app e al motore su PC resettati di fresco
+  DetailPrint "Controllo runtime C++..."
+  ReadRegStr $0 HKLM "SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64" "Installed"
+  ${If} $0 == 1
+    DetailPrint "Runtime C++ presente."
+  ${Else}
+    DetailPrint "Installo runtime C++..."
+    Delete "$TEMP\vc_redist.x64.exe"
+    File "/oname=$TEMP\vc_redist.x64.exe" "${VCREDIST}"
+    ExecWait '"$TEMP\vc_redist.x64.exe" /install /quiet /norestart' $1
+    Delete "$TEMP\vc_redist.x64.exe"
+    ${If} $1 == 0
+      DetailPrint "Runtime C++ ok."
+    ${Else}
+      Abort "Installazione runtime C++ fallita."
+    ${EndIf}
+  ${EndIf}
+SectionEnd
+
 Section "WebView2"
   ${If} ${RunningX64}
     ReadRegStr $4 HKLM "SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\${WEBVIEW2APPGUID}" "pv"
@@ -292,6 +316,10 @@ SectionEnd
 ; ============================================================
 
 Function un.onInit
+  SetShellVarContext current
+  ${If} ${RunningX64}
+    SetRegView 64
+  ${EndIf}
   File "/oname=$TEMP\zen-side.bmp" "${SIDEBAR}"
   StrCpy $DataCheck 0
 FunctionEnd

@@ -32,6 +32,12 @@ if (-not (Test-Path $oc)) {
   exit 1
 }
 Write-Output ("motore: {0} MB" -f [math]::Round((Get-Item $oc).Length / 1MB, 1))
+$vc = Get-ChildItem -Path "C:\Program Files (x86)\Microsoft Visual Studio\*\BuildTools\VC\Redist\MSVC\*\vc_redist.x64.exe" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if (-not $vc) {
+  Write-Output "[ERRORE] vc_redist.x64.exe non trovato."
+  exit 1
+}
+Write-Output ("vcredist: {0}" -f $vc.FullName)
 $mk = $null
 try { $mk = (Get-Command makensis -ErrorAction SilentlyContinue).Source } catch {}
 if (-not $mk) {
@@ -44,7 +50,7 @@ if (-not $mk) {
 }
 Write-Output ("makensis: {0}" -f $mk)
 
-$kb = [int]((Get-Item $exe).Length / 1024) + 600
+$kb = [int](((Get-Item $exe).Length + (Get-Item $oc).Length) / 1024) + 600
 $outName = "ZEN-AGENT_{0}_x64-setup.exe" -f $ver
 $outDir = Join-Path $root "src-tauri\target\release\bundle\nsis"
 $out = Join-Path $outDir $outName
@@ -58,6 +64,7 @@ $defs = @(
   ("/DOUTFILE={0}" -f $out),
   ("/DWEBVIEW2BOOTSTRAPPERPATH={0}" -f $bstrap),
   ("/DOPENCODEEXE={0}" -f $oc),
+  ("/DVCREDIST={0}" -f $vc.FullName),
   ("/DESTIMATEDSIZE={0}" -f $kb)
 )
 & $mk /V2 @defs (Join-Path $root "nsis\zen-setup.nsi")
