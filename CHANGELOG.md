@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.4.13]
+- Telefono fuori-casa: nuovo tasto nelle impostazioni che apre un tunnel internet (Cloudflare, scaricato e verificato solo su richiesta) con secondo QR valido su qualsiasi rete. Fix scroll impostazioni (mancava min-height:0) + finestra più alta.
+
 ## [0.4.12]
 - Fix server telefono: le connessioni ereditavano il non-blocking del listener e non rispondevano mai. Ora tornano bloccanti e la pagina mobile funziona.
 

@@ -1,0 +1,1 @@
+- Telefono fuori-casa: nuovo tasto nelle impostazioni che apre un tunnel internet (Cloudflare, scaricato e verificato solo su richiesta) con secondo QR valido su qualsiasi rete. Fix scroll impostazioni (mancava min-height:0) + finestra più alta.

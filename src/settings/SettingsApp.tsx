@@ -63,6 +63,18 @@ export default function SettingsApp() {
   const [pos, setPos] = useState("top");
   const [msg, setMsg] = useState("");
   const [phoneUrl, setPhoneUrl] = useState<string | null>(null);
+  const [remoteUrl, setRemoteUrl] = useState<string | null>(null);
+  const [remoteState, setRemoteState] = useState("off");
+  const [qrOk, setQrOk] = useState(true);
+
+  const syncPhone = useCallback(async () => {
+    try {
+      const ph = await api.phoneStatus();
+      setPhoneUrl(ph.running ? ph.url : null);
+      setRemoteUrl(ph.public_url || null);
+      setRemoteState(ph.remote || "off");
+    } catch { /* ignora */ }
+  }, []);
 
   const reload = useCallback(async () => {
     try {
@@ -80,17 +92,26 @@ export default function SettingsApp() {
     try {
       const ph = await api.phoneStatus();
       setPhoneUrl(ph.running ? ph.url : null);
+      setRemoteUrl(ph.public_url || null);
+      setRemoteState(ph.remote || "off");
     } catch { /* ignora */ }
   }, []);
 
   useEffect(() => {
     reload();
+    // Mentre le impostazioni sono aperte, aggiorna QR e stato tunnel.
+    const t = window.setInterval(() => {
+      syncPhone();
+    }, 2000);
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") api.hideSettings().catch(() => undefined);
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [reload]);
+    return () => {
+      window.clearInterval(t);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [reload, syncPhone]);
 
   const changeChannel = async (c: string) => {
     try {
@@ -147,13 +168,31 @@ export default function SettingsApp() {
     }
   };
 
-  const copyPhone = async () => {
-    if (!phoneUrl) return;
+  const copyPhone = async (url: string | null) => {
+    if (!url) return;
     try {
-      await navigator.clipboard.writeText(phoneUrl);
+      await navigator.clipboard.writeText(url);
       setMsg("link copiato negli appunti.");
     } catch {
-      setMsg(phoneUrl);
+      setMsg(url);
+    }
+  };
+
+  const toggleRemote = async () => {
+    try {
+      if (remoteState === "pronto" || remoteState === "avvio") {
+        await api.phoneRemoteStop();
+        setRemoteUrl(null);
+        setRemoteState("off");
+        setMsg("fuori-casa spento.");
+      } else {
+        setRemoteState("avvio");
+        setMsg("fuori-casa in avvio (scarica il tunnel la prima volta)...");
+        await api.phoneRemoteStart();
+      }
+    } catch (e) {
+      setRemoteState("off");
+      setMsg("fuori-casa fallito: " + String(e));
     }
   };
 
@@ -210,14 +249,53 @@ export default function SettingsApp() {
           {phoneUrl && (
             <div id="phone-qr">
               <div id="phone-qr-img">
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(phoneUrl)}`}
-                  alt="QR collega-telefono"
-                />
+                {qrOk ? (
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(phoneUrl)}`}
+                    alt="QR collega-telefono"
+                    onError={() => {
+                      setQrOk(false);
+                      setMsg("QR online non caricato: usa il link copiato.");
+                    }}
+                  />
+                ) : (
+                  <div id="phone-noqr">QR non disponibile: copia il link sotto</div>
+                )}
               </div>
               <div id="phone-url">{phoneUrl}</div>
-              <button className="chan" onClick={copyPhone}>copia link</button>
+              <button className="chan" onClick={() => copyPhone(phoneUrl)}>copia link</button>
               <div id="phone-note">stesso Wi-Fi del PC · chi ha il QR può scrivere a ZEN</div>
+            </div>
+          )}
+
+          <div className="aux-label">TELEFONO FUORI CASA</div>
+          <div id="set-row">
+            <button
+              className={`chan ${remoteState === "pronto" || remoteState === "avvio" ? "on" : ""}`}
+              onClick={toggleRemote}
+              disabled={!phoneUrl}
+            >
+              {remoteState === "pronto" || remoteState === "avvio" ? "spegni fuori-casa" : "attiva fuori-casa"}
+            </button>
+          </div>
+          {!phoneUrl && <div id="phone-note">accendi prima il collegamento telefono qui sopra.</div>}
+          {phoneUrl && remoteState !== "off" && remoteState !== "" && remoteState !== "pronto" && (
+            <div id="phone-note">fuori-casa: {remoteState}...</div>
+          )}
+          {remoteUrl && (
+            <div id="phone-qr">
+              <div id="phone-qr-img">
+                {qrOk && (
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(remoteUrl)}`}
+                    alt="QR fuori-casa"
+                    onError={() => setQrOk(false)}
+                  />
+                )}
+              </div>
+              <div id="phone-url">{remoteUrl}</div>
+              <button className="chan" onClick={() => copyPhone(remoteUrl)}>copia link</button>
+              <div id="phone-note">vale su qualsiasi rete · il link cambia a ogni accensione · non condividerlo</div>
             </div>
           )}
 

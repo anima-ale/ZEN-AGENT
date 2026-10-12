@@ -1,7 +1,7 @@
 {
   "name": "zen-agent",
   "private": true,
-  "version": "0.4.12",
+  "version": "0.4.13",
   "type": "module",
   "description": "ZEN-AGENT - goccia liquid-glass + pannello fluttuante sopra il PC, motore opencode. Sempre attivo, anche a tutto chiuso.",
   "scripts": {

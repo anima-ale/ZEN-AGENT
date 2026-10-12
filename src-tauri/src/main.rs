@@ -832,6 +832,10 @@ struct PhoneState {
     token: String,
     inbox: Vec<PhoneMsg>,
     next_id: u64,
+    /// Tunnel internet (fuori casa): "" = spento.
+    public_url: String,
+    /// Stato tunnel: off | avvio | pronto | errore: ...
+    remote: String,
 }
 
 static PHONE: Mutex<PhoneState> = Mutex::new(PhoneState {
@@ -840,12 +844,156 @@ static PHONE: Mutex<PhoneState> = Mutex::new(PhoneState {
     token: String::new(),
     inbox: Vec::new(),
     next_id: 1,
+    public_url: String::new(),
+    // "" = off (String::from non è const negli static)
+    remote: String::new(),
 });
+
+/// Tunnel Cloudflare per il fuori-casa (scaricato solo su richiesta).
+const CLOUDFLARED_VERSION: &str = "2026.10.0";
+const CLOUDFLARED_SHA256: &str =
+    "86aee4017b26625cee8484c113558f48effa4cd47f7aa05fcf425604e5d2b23c";
+
+fn cloudflared_url() -> String {
+    format!(
+        "https://github.com/cloudflare/cloudflared/releases/download/{CLOUDFLARED_VERSION}/cloudflared-windows-amd64.exe"
+    )
+}
+
+fn cloudflared_bin() -> PathBuf {
+    home_dir().join(".zen-agent").join("cloudflared.exe")
+}
+
+static TUNNEL_GEN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+static TUNNEL_CHILD: Mutex<Option<std::process::Child>> = Mutex::new(None);
+
+fn kill_tunnel() {
+    if let Some(mut child) = TUNNEL_CHILD.lock().unwrap().take() {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+}
+
+/// Scarica cloudflared (solo la prima volta che serve il fuori-casa).
+fn download_cloudflared(dst: &PathBuf) -> Result<(), String> {
+    if let Some(parent) = dst.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let mut c = std::process::Command::new("powershell");
+    c.args([
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        &format!(
+            "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -Uri '{}' -OutFile '{}'",
+            cloudflared_url(),
+            dst.to_string_lossy()
+        ),
+    ]);
+    silence(&mut c);
+    c.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    let st = c.status().map_err(|e| format!("download fallito: {e}"))?;
+    if !st.success() || !dst.is_file() {
+        return Err("download fallito (rete?)".into());
+    }
+    // Verifica SHA-256: eseguibile da internet, niente fiducia cieca.
+    let mut h = std::process::Command::new("powershell");
+    h.args([
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        &format!(
+            "(Get-FileHash '{}' -Algorithm SHA256).Hash",
+            dst.to_string_lossy()
+        ),
+    ]);
+    silence(&mut h);
+    let out = h.output().map_err(|e| format!("verifica fallita: {e}"))?;
+    let got = String::from_utf8_lossy(&out.stdout).trim().to_lowercase();
+    if got != CLOUDFLARED_SHA256 {
+        let _ = std::fs::remove_file(dst);
+        return Err("verifica firma fallita: file scartato".into());
+    }
+    Ok(())
+}
+
+fn set_remote(gen: u64, remote: &str, public_url: &str) {
+    if TUNNEL_GEN.load(std::sync::atomic::Ordering::SeqCst) != gen {
+        return; // generazione vecchia: non toccare lo stato nuovo
+    }
+    let mut st = PHONE.lock().unwrap();
+    st.remote = remote.to_string();
+    st.public_url = public_url.to_string();
+}
+
+/// Thread tunnel: scarica (se serve), avvia cloudflared, legge l'URL pubblico.
+fn remote_thread(port: u16, token: String, gen: u64) {
+    use std::io::BufRead;
+    set_remote(gen, "avvio", "");
+    let bin = cloudflared_bin();
+    if !bin.is_file() {
+        if let Err(e) = download_cloudflared(&bin) {
+            set_remote(gen, &format!("errore: {e}"), "");
+            return;
+        }
+    }
+    let mut c = std::process::Command::new(&bin);
+    c.args([
+        "tunnel",
+        "--url",
+        &format!("http://127.0.0.1:{port}"),
+        "--no-autoupdate",
+    ]);
+    silence(&mut c);
+    c.stdin(Stdio::null()).stdout(Stdio::null()).stderr(std::process::Stdio::piped());
+    let mut child = match c.spawn() {
+        Ok(ch) => ch,
+        Err(e) => {
+            set_remote(gen, &format!("errore: avvio tunnel fallito ({e})"), "");
+            return;
+        }
+    };
+    let stderr = match child.stderr.take() {
+        Some(s) => s,
+        None => {
+            set_remote(gen, "errore: tunnel senza output", "");
+            return;
+        }
+    };
+    *TUNNEL_CHILD.lock().unwrap() = Some(child);
+    let mut lines = std::io::BufReader::new(stderr).lines();
+    let mut found = String::new();
+    while let Some(line) = lines.next() {
+        let Ok(line) = line else { break };
+        for tok in line.split_whitespace() {
+            let t = tok.trim_matches(['|', ' ', '\t']).trim_end_matches(['.', ',']);
+            if t.starts_with("https://") && t.contains("trycloudflare.com") {
+                found = t.to_string();
+                break;
+            }
+        }
+        if !found.is_empty() {
+            break;
+        }
+    }
+    if found.is_empty() {
+        set_remote(gen, "errore: tunnel chiuso senza URL", "");
+        return;
+    }
+    set_remote(gen, "pronto", &format!("{found}/{token}/"));
+    // Drena fino a EOF: se cloudflared muore, il telefono lo deve sapere.
+    for _ in lines.by_ref() {}
+    set_remote(gen, "errore: tunnel caduto, riaccendilo", "");
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct PhoneStatus {
     running: bool,
     url: String,
+    public_url: String,
+    remote: String,
 }
 
 fn local_ip() -> String {
@@ -1021,11 +1169,17 @@ fn phone_start(app: tauri::AppHandle) -> Result<String, String> {
         nanos,
         PHONE_SEQ.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
     );
+    // Chiude eventuali tunnel orfani dell'accensione precedente.
+    TUNNEL_GEN.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    kill_tunnel();
     {
         let mut st = PHONE.lock().unwrap();
         st.running = true;
         st.port = port;
         st.token = token.clone();
+        // Nuova accensione = nuovo indirizzo: il tunnel vecchio è morto.
+        st.public_url.clear();
+        st.remote = String::from("off");
     }
     let app2 = app.clone();
     std::thread::spawn(move || phone_serve(app2, listener, token));
@@ -1034,7 +1188,12 @@ fn phone_start(app: tauri::AppHandle) -> Result<String, String> {
 
 #[tauri::command]
 fn phone_stop() -> Result<(), String> {
-    PHONE.lock().unwrap().running = false;
+    TUNNEL_GEN.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    kill_tunnel();
+    let mut st = PHONE.lock().unwrap();
+    st.running = false;
+    st.public_url.clear();
+    st.remote = String::from("off");
     Ok(())
 }
 
@@ -1044,7 +1203,40 @@ fn phone_status() -> PhoneStatus {
     PhoneStatus {
         running: st.running,
         url: if st.running { phone_url(&st) } else { String::new() },
+        public_url: st.public_url.clone(),
+        remote: st.remote.clone(),
     }
+}
+
+/// Fuori-casa: tunnel internet verso il mini-server (solo se già acceso in LAN).
+#[tauri::command]
+fn phone_remote_start() -> Result<String, String> {
+    let (port, token, running) = {
+        let st = PHONE.lock().unwrap();
+        (st.port, st.token.clone(), st.running)
+    };
+    if !running {
+        return Err("accendi prima il collegamento telefono".into());
+    }
+    {
+        let st = PHONE.lock().unwrap();
+        if st.remote == "avvio" || st.remote == "pronto" {
+            return Ok(st.remote.clone());
+        }
+    }
+    let gen = TUNNEL_GEN.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+    std::thread::spawn(move || remote_thread(port, token, gen));
+    Ok(String::from("avvio"))
+}
+
+#[tauri::command]
+fn phone_remote_stop() -> Result<(), String> {
+    TUNNEL_GEN.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    kill_tunnel();
+    let mut st = PHONE.lock().unwrap();
+    st.public_url.clear();
+    st.remote = String::from("off");
+    Ok(())
 }
 
 #[tauri::command]
@@ -2078,7 +2270,9 @@ fn main() {
             phone_start,
             phone_stop,
             phone_status,
-            phone_answer
+            phone_answer,
+            phone_remote_start,
+            phone_remote_stop
         ])
         .setup(move |app| {
             // Tray: resta attivo anche a tutto chiuso

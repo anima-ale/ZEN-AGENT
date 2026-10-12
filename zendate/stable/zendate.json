@@ -1,6 +1,6 @@
 {
-    "version":  "0.4.12",
-    "notes":  "- Fix server telefono: le connessioni ereditavano il non-blocking del listener e non rispondevano mai. Ora tornano bloccanti e la pagina mobile funziona.",
+    "version":  "0.4.13",
+    "notes":  "- Telefono fuori-casa: nuovo tasto nelle impostazioni che apre un tunnel internet (Cloudflare, scaricato e verificato solo su richiesta) con secondo QR valido su qualsiasi rete. Fix scroll impostazioni (mancava min-height:0) + finestra più alta.",
     "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/latest/download/ZEN-AGENT_x64-setup.exe",
-    "sha256":  "c130f985426a47a75168428f5c3e43875d2e550fea95e43dd8ddaba1526ca692"
+    "sha256":  "4613365c8b3f64d1de83b849059c41b9e3771979197b5f2fb296acdb710b48b7"
 }

@@ -78,11 +78,15 @@ export const api = {
   phoneStatus: () => invoke<PhoneStatus>("phone_status"),
   phoneAnswer: (id: number, text: string) =>
     invoke<void>("phone_answer", { id, text }),
+  phoneRemoteStart: () => invoke<string>("phone_remote_start"),
+  phoneRemoteStop: () => invoke<void>("phone_remote_stop"),
 };
 
 export interface PhoneStatus {
   running: boolean;
   url: string;
+  public_url: string;
+  remote: string;
 }
 
 export function onFilesDropped(cb: (paths: string[]) => void): Promise<UnlistenFn> {
