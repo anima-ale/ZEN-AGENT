@@ -1,6 +1,6 @@
 {
-    "version":  "0.4.3",
-    "notes":  "- Setup davvero autonomo su PC resettati: runtime C++ integrato (se manca si installa da solo) + registro a 64 bit (prima le chiavi finivano nella vista a 32 bit).",
+    "version":  "0.4.4",
+    "notes":  "- Setup tornato a quello bianco di Tauri (con tuo logo): niente più installer scuro. Nota: senza motore e runtime integrati, su PC freschi servono Node/opencode dal sistema.",
     "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/latest/download/ZEN-AGENT_x64-setup.exe",
-    "sha256":  "65a9fc5e01ada1ae3b60c4ad60aaefce507397d4443882507901fc5b3277d8fb"
+    "sha256":  "648703a5124d660fc56bba3bc840f417cc643d14eca91cd573e990cfb6c25bf1"
 }

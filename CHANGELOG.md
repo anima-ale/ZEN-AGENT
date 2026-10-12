@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.4.4]
+- Setup tornato a quello bianco di Tauri (con tuo logo): niente più installer scuro. Nota: senza motore e runtime integrati, su PC freschi servono Node/opencode dal sistema.
+
 ## [0.4.3]
 - Setup davvero autonomo su PC resettati: runtime C++ integrato (se manca si installa da solo) + registro a 64 bit (prima le chiavi finivano nella vista a 32 bit).
 

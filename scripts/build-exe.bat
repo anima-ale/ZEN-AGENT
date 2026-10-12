@@ -8,8 +8,8 @@ call npx tauri build
 echo.
 echo TAURI BUILD EXIT: %ERRORLEVEL%
 if errorlevel 1 goto fine
-REM Installer scuro NEO1 scritto a mano (sovrascrive il setup di Tauri)
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build-dark-setup.ps1
+REM Setup bianco Tauri con nome stabile (niente versione nel nome)
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\neo-white-setup.ps1
 echo.
-echo DARK SETUP EXIT: %ERRORLEVEL%
+echo WHITE SETUP EXIT: %ERRORLEVEL%
 :fine
