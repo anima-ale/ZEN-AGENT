@@ -1,5 +1,11 @@
 # Changelog ZEN-AGENT
 
+## [0.7.0]
+- TITAN simultaneo: capisce ed esegue mentre parli (ogni azione completa parte subito in parallelo, riepilogo parlato alla fine). Endpointing a 1,2s per i comandi secchi. Chiusura automatica dopo 10s senza parole per lui.
+
+## [0.6.0]
+- ZEN TITAN (voce, integrato): finestrella con visualizzatore audio, wake-word "zen" sempre in ascolto (disattivabile), hotkey Ctrl+Shift+Z, pulsante microfono nel pannello e voce nel menu tray. Esegue tutto come la chat e risponde parlando; si chiude da sola alla fine.
+
 ## [0.5.0]
 - Giro di polish: telefono in coda se ZEN è occupato (niente più "riprova"), pagina telefono con scadenza anti-poll infinito, scroll libero nelle ausiliarie già incluso, pulizia file di test.
 

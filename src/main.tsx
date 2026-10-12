@@ -5,6 +5,7 @@ import PanelApp from "./panel/PanelApp";
 import SnakeApp from "./game/SnakeApp";
 import TasksApp from "./tasks/TasksApp";
 import SettingsApp from "./settings/SettingsApp";
+import VoiceApp from "./voice/VoiceApp";
 import "./styles.css";
 
 const params = new URLSearchParams(location.search);
@@ -18,6 +19,7 @@ function Root() {
   if (mode === "game") return <SnakeApp />;
   if (mode === "tasks") return <TasksApp />;
   if (mode === "settings") return <SettingsApp />;
+  if (mode === "voice") return <VoiceApp />;
   return <PanelApp />;
 }
 

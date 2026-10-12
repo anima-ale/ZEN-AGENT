@@ -150,6 +150,7 @@ const P = {
   clip: "M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48",
   send: "M22 2L11 13 M22 2l-7 20-4-9-9-4 20-7z",
   x: "M18 6L6 18 M6 6l12 12",
+  mic: "M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z M19 10v2a7 7 0 0 1-14 0v-2 M12 19v4 M8 23h8",
   clock: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2",
   trash: "M3 6h18 M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6 M10 11v6 M14 11v6",
 };
@@ -544,6 +545,9 @@ export default function PanelApp() {
           </div>
           <button className="icon-btn" title="Cerca aggiornamenti" onClick={() => checkForUpdates(false)} disabled={checking}>
             <Icon d={P.refresh} />
+          </button>
+          <button className="icon-btn" title="Parla con ZEN TITAN" onClick={() => api.showVoice().catch(() => undefined)}>
+            <Icon d={P.mic} />
           </button>
           <button className="icon-btn" title="Impostazioni" onClick={() => api.showSettings().catch(() => undefined)}>
             <Icon d={P.gear} />

@@ -66,6 +66,7 @@ export default function SettingsApp() {
   const [remoteUrl, setRemoteUrl] = useState<string | null>(null);
   const [remoteState, setRemoteState] = useState("off");
   const [qrOk, setQrOk] = useState(true);
+  const [voice, setVoice] = useState(true);
 
   const syncPhone = useCallback(async () => {
     try {
@@ -73,6 +74,9 @@ export default function SettingsApp() {
       setPhoneUrl(ph.running ? ph.url : null);
       setRemoteUrl(ph.public_url || null);
       setRemoteState(ph.remote || "off");
+    } catch { /* ignora */ }
+    try {
+      setVoice(await api.getVoiceListen());
     } catch { /* ignora */ }
   }, []);
 
@@ -178,8 +182,17 @@ export default function SettingsApp() {
     }
   };
 
-  const toggleRemote = async () => {
+  const toggleVoice = async () => {
     try {
+      await api.setVoiceListen(!voice);
+      setVoice(!voice);
+      setMsg(!voice ? "ascolto vocale acceso: di' zen." : "ascolto vocale spento (resta hotkey e pulsante).");
+    } catch (e) {
+      setMsg("voce fallita: " + String(e));
+    }
+  };
+
+  const toggleRemote = async () => {    try {
       if (remoteState === "pronto" || remoteState === "avvio") {
         await api.phoneRemoteStop();
         setRemoteUrl(null);
@@ -240,8 +253,14 @@ export default function SettingsApp() {
             ))}
           </div>
 
-          <div className="aux-label">TELEFONO</div>
-          <div id="set-row">
+          <div className="aux-label">ZEN TITAN (VOCE)</div>
+          <label id="set-auto">
+            <input type="checkbox" checked={voice} onChange={toggleVoice} />
+            rispondi a "zen" (microfono sempre in ascolto)
+          </label>
+          <div id="phone-note">hotkey Ctrl+Shift+Z e pulsante microfono sempre attivi · la voce usa i servizi online di Windows</div>
+
+          <div className="aux-label">TELEFONO</div>          <div id="set-row">
             <button className={`chan ${phoneUrl ? "on" : ""}`} onClick={togglePhone}>
               {phoneUrl ? "scollega telefono" : "crea QR collega-telefono"}
             </button>

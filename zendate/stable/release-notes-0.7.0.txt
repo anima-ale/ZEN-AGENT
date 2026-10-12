@@ -1,0 +1,1 @@
+- TITAN simultaneo: capisce ed esegue mentre parli (ogni azione completa parte subito in parallelo, riepilogo parlato alla fine). Endpointing a 1,2s per i comandi secchi. Chiusura automatica dopo 10s senza parole per lui.

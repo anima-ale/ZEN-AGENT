@@ -80,6 +80,10 @@ export const api = {
     invoke<void>("phone_answer", { id, text }),
   phoneRemoteStart: () => invoke<string>("phone_remote_start"),
   phoneRemoteStop: () => invoke<void>("phone_remote_stop"),
+  showVoice: () => invoke<void>("show_voice"),
+  hideVoice: () => invoke<void>("hide_voice"),
+  getVoiceListen: () => invoke<boolean>("get_voice_listen"),
+  setVoiceListen: (enabled: boolean) => invoke<void>("set_voice_listen", { enabled }),
 };
 
 export interface PhoneStatus {

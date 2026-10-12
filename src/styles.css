@@ -562,6 +562,98 @@ body[data-graphics="neo"] *:not(.unified-input-wrapper):not(.unified-input-wrapp
 }
 #phone-note { font-size: 11px; color: var(--text-sub); }
 
+/* ============ ZEN TITAN overlay vocale ============ */
+#voice-root {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px;
+  pointer-events: none;
+}
+#voice-card {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 416px;
+  background: var(--bg);
+  border: 1px solid var(--gold);
+  border-radius: 10px;
+  animation: neo1In 0.2s ease-out;
+  -webkit-app-region: drag;
+  overflow: hidden;
+}
+#voice-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+#voice-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+#voice-title {
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text);
+}
+#voice-card .icon-btn { -webkit-app-region: no-drag; }
+#voice-viz {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 10px 12px 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+#voice-status {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-sub);
+  padding: 8px 14px 0;
+}
+#voice-heard {
+  font-size: 15px;
+  color: var(--text);
+  padding: 6px 14px 0;
+}
+#voice-answer {
+  font-size: 14px;
+  color: var(--text-sub);
+  padding: 6px 14px 0;
+  max-height: 110px;
+  overflow-y: auto;
+}
+#voice-unsupported {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-sub);
+  padding: 14px;
+}
+#voice-mic {
+  display: flex;
+  margin: 10px auto 14px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+#voice-mic svg { width: 24px; height: 24px; }
+#voice-mic:active { transform: scale(0.94); }
+
 /* ============ markdown NEO1 (solo cornice) ============ */
 .msg.agent.md .md-p { margin: 0 0 6px; }
 .msg.agent.md .md-ok {

@@ -1663,6 +1663,56 @@ async fn agent_run(
     .map_err(|e| format!("task fallito: {e}"))?
 }
 
+/// ZEN TITAN (voce): mostra la finestrella e avvia l'ascolto del comando.
+fn show_voice_window(app: &tauri::AppHandle) {
+    if let Some(w) = app.get_webview_window("voice") {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+        let _ = w.emit("zen-voice-trigger", ());
+    }
+}
+
+#[tauri::command]
+fn show_voice(app: tauri::AppHandle) -> Result<(), String> {
+    show_voice_window(&app);
+    Ok(())
+}
+
+#[tauri::command]
+fn hide_voice(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(w) = app.get_webview_window("voice") {
+        let _ = w.hide();
+    }
+    Ok(())
+}
+
+fn voice_file(app: &tauri::AppHandle) -> PathBuf {
+    app.path()
+        .app_data_dir()
+        .unwrap_or_else(|_| home_dir().join(".zen-agent"))
+        .join("voice-listen.txt")
+}
+
+/// Ascolto wake-word "zen" sempre attivo (microfono acceso, disattivabile).
+#[tauri::command]
+fn get_voice_listen(app: tauri::AppHandle) -> bool {
+    std::fs::read_to_string(voice_file(&app))
+        .map(|s| s.trim() != "off")
+        .unwrap_or(true)
+}
+
+#[tauri::command]
+fn set_voice_listen(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    let f = voice_file(&app);
+    if let Some(p) = f.parent() {
+        let _ = std::fs::create_dir_all(p);
+    }
+    std::fs::write(&f, if enabled { "on" } else { "off" }).map_err(|e| e.to_string())?;
+    let _ = app.emit("zen-voice-listen", enabled);
+    Ok(())
+}
+
 #[tauri::command]
 fn show_game(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(w) = app.get_webview_window("game") {
@@ -2369,6 +2419,7 @@ fn main() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             show_panel_window(app);
         }))
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(state)
         .invoke_handler(tauri::generate_handler![
             show_panel,
@@ -2389,6 +2440,10 @@ fn main() {
             agent_run,
             show_game,
             hide_game,
+            show_voice,
+            hide_voice,
+            get_voice_listen,
+            set_voice_listen,
             minimize_to_drop,
             ensure_opencode_setup,
             add_task,
@@ -2415,8 +2470,9 @@ fn main() {
                 use tauri::menu::{Menu, MenuItem};
                 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
                 let show = MenuItem::with_id(app, "show", "Mostra ZEN-AGENT", true, None::<&str>)?;
+                let voice = MenuItem::with_id(app, "voice", "Parla con ZEN TITAN", true, None::<&str>)?;
                 let quit = MenuItem::with_id(app, "quit", "Esci", true, None::<&str>)?;
-                let menu = Menu::with_items(app, &[&show, &quit])?;
+                let menu = Menu::with_items(app, &[&show, &voice, &quit])?;
                 let mut builder = TrayIconBuilder::with_id("main").menu(&menu);
                 builder = builder.show_menu_on_left_click(false);
                 if let Some(icon) = app.default_window_icon().cloned() {
@@ -2426,6 +2482,7 @@ fn main() {
                 let _tray = builder
                     .on_menu_event(|app, event| match event.id.as_ref() {
                         "show" => show_panel_window(app),
+                        "voice" => show_voice_window(app),
                         "quit" => app.exit(0),
                         _ => {}
                     })
@@ -2452,6 +2509,19 @@ fn main() {
 
             setup_drop_tracker(app.handle());
             ensure_serve_daemon();
+            // Hotkey globale Ctrl+Shift+Z: apre ZEN TITAN da dovunque.
+            #[cfg(desktop)]
+            {
+                use tauri_plugin_global_shortcut::GlobalShortcutExt;
+                if app.global_shortcut().register("ctrl+shift+z").is_ok() {
+                    let _ = app.global_shortcut().on_shortcut("ctrl+shift+z", |app, _sc, event| {
+                        use tauri_plugin_global_shortcut::ShortcutState;
+                        if event.state == ShortcutState::Pressed {
+                            show_voice_window(app);
+                        }
+                    });
+                }
+            }
             // ripara db + imposta free model in background senza bloccare l'avvio
             std::thread::spawn(|| {
                 fix_corrupted_db();
