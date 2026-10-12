@@ -30,6 +30,8 @@ const DEFAULT_FREE_MODEL: &str = "opencode/muse-spark-1.3-contributor-free";
 const DEFAULT_FREE_SMALL_MODEL: &str = "opencode/nemotron-3.5-lightning-free";
 /// Pensiero sempre al minimo: reasoning effort ridotto (quasi istantaneo).
 const FAST_VARIANT: &str = "minimal";
+/// Stile fisso: niente narrazione né annunci, solo fatti + conferme brevi.
+const STYLE_RULE: &str = "REGOLA FISSA: non scrivere mai nessun testo prima di aver finito con gli strumenti; lavora in silenzio e parla solo a lavoro concluso con conferme brevissime. Vietato annunciare.";
 const SERVE_PORT: u16 = 4096;
 
 // ZENdate (come KOA Browser): manifest su GitHub raw + setup exe nelle Release.
@@ -641,7 +643,7 @@ fn spawn_task_scheduler(app: tauri::AppHandle, state: AppState) {
             };
             if due {
                 let cwd = state.cwd.lock().unwrap().clone();
-                let prompt = t.prompt.clone();
+                let prompt = format!("{STYLE_RULE} {}", t.prompt);
                 // Diretto prima (l'attach costa ~2,5s), attach solo di scorta.
                 let res = run_opencode_args(
                     &[
@@ -873,7 +875,8 @@ fn run_streamed(
         .stderr(Stdio::null());
     let mut child = cmd.spawn().map_err(|e| format!("avvio opencode fallito: {e}"))?;
     let stdout = child.stdout.take().ok_or("stdout mancante")?;
-    let mut final_text = String::new();
+    let mut early_text = String::new();
+    let mut late_text = String::new();
     let mut acts: u32 = 0;
     let mut started = false;
     let mut saw_content = false;
@@ -939,7 +942,12 @@ fn run_streamed(
                 if let Some(s) = part.and_then(|p| p.get("text")).and_then(|x| x.as_str()) {
                     if !s.is_empty() {
                         saw_content = true;
-                        final_text.push_str(s);
+                        // Narrazione pre-azione finisce qui se poi usa strumenti.
+                        if acts > 0 {
+                            late_text.push_str(s);
+                        } else {
+                            early_text.push_str(s);
+                        }
                     }
                 }
             }
@@ -953,6 +961,13 @@ fn run_streamed(
     if !saw_content {
         return Err("opencode risposta vuota (stream)".into());
     }
+    // Se ha usato strumenti, la conclusione sta dopo: la narrazione
+    // iniziale si butta, restano solo i fatti.
+    let final_text = if acts > 0 && !late_text.trim().is_empty() {
+        late_text
+    } else {
+        early_text + &late_text
+    };
     Ok(final_text)
 }
 
@@ -1034,7 +1049,9 @@ async fn agent_run(
         // Messaggi lunghi: NESSUN piano intermedio. Il modello pianifica già
         // da solo nel suo loop agente; ogni header in più diventa solo un
         // pretesto per chiedere all'utente invece di eseguire.
-        let final_prompt = prompt_text;
+        // Stile fisso anti-narrazione davanti a tutto (la cache resta sulla
+        // richiesta originale dell'utente).
+        let final_prompt = format!("{STYLE_RULE} {prompt_text}");
         // Corsia veloce: cache disco, poi streaming live diretto (l'attach
         // costa ~2,5s e resta solo come fallback). Ordine: diretto+veloce,
         // diretto, attach+veloce, attach. Poi fallback classico stesso ordine.

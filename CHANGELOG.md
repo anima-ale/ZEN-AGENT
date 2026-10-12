@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.4.10]
+- Anti-narrazione: regola fissa davanti a ogni richiesta (chat e programmate) + scarto del testo pre-azione quando usa strumenti. Restano solo fatti e conferme: ideale per "apri chrome" e domande velocissime.
+
 ## [0.4.9]
 - Corsia veloce: il diretto batte l'attach di ~2,5s, ora è sempre primo (attach solo di scorta). Cache risposte su disco: prompt identico e breve risponde istantaneo senza rete (TTL 24h). Warm-up gratis all'avvio: prima domanda senza costi di avvio a freddo.
 

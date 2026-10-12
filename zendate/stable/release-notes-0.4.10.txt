@@ -1,0 +1,1 @@
+- Anti-narrazione: regola fissa davanti a ogni richiesta (chat e programmate) + scarto del testo pre-azione quando usa strumenti. Restano solo fatti e conferme: ideale per "apri chrome" e domande velocissime.
