@@ -2,6 +2,7 @@ node_modules/
 dist/
 src-tauri/target/
 src-tauri/Wix/
+src-tauri/vendor/
 site-lab/
 *.log
 .DS_Store

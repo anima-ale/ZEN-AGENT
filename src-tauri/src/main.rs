@@ -205,17 +205,56 @@ fn silence(cmd: &mut std::process::Command) {
     cmd.creation_flags(NO_WINDOW);
 }
 
+/// File integrato nel setup (cartella vendor accanto all'exe).
+fn bundled_vendor(name: &str) -> Option<PathBuf> {
+    if let Ok(me) = std::env::current_exe() {
+        if let Some(dir) = me.parent() {
+            let p = dir.join("vendor").join(name);
+            if p.is_file() {
+                return Some(p);
+            }
+        }
+    }
+    None
+}
+
+#[cfg(target_os = "windows")]
+fn vcredist_present() -> bool {
+    let windir = std::env::var("WINDIR").unwrap_or_else(|_| "C:\\Windows".into());
+    PathBuf::from(windir)
+        .join("System32")
+        .join("vcruntime140.dll")
+        .is_file()
+}
+
+/// Primo avvio su PC freschi: installa da solo il runtime C++ integrato
+/// (può chiedere una conferma di Windows una volta sola).
+#[cfg(target_os = "windows")]
+fn ensure_windows_deps() {
+    if vcredist_present() {
+        return;
+    }
+    if let Some(redist) = bundled_vendor("vc_redist.x64.exe") {
+        let mut c = std::process::Command::new(redist);
+        c.args(["/install", "/quiet", "/norestart"]);
+        c.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+        silence(&mut c);
+        let _ = c.status();
+    }
+}
+
 /// EXE reale di opencode, senza passare da cmd.exe.
 /// cmd tratta gli a capo come separatori di comando e taglia i prompt
 /// multilinea alla prima riga (il resto muore lì).
 fn direct_opencode_exe() -> Option<PathBuf> {
-    // 1. Accanto al nostro exe (il setup scuro ce lo mette): app autonoma,
-    // niente Node/npm richiesti sul PC dell'utente.
+    // 1. Integrato nel setup (cartella vendor): PC autonomo, niente Node/npm.
+    // 2. Accanto al nostro exe (vecchi setup scuri).
     if let Ok(me) = std::env::current_exe() {
         if let Some(dir) = me.parent() {
-            let p = dir.join("opencode.exe");
-            if p.is_file() {
-                return Some(p);
+            for cand in [dir.join("vendor").join("opencode.exe"), dir.join("opencode.exe")] {
+                if cand.is_file() {
+                    return Some(cand);
+                }
             }
         }
     }
@@ -823,6 +862,8 @@ fn truncate(s: &str, max: usize) -> String {
 
 #[tauri::command]
 fn ensure_opencode_setup(state: tauri::State<AppState>) -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    ensure_windows_deps();
     if !opencode_installed() {
         // Prova installazione automatica via npm (Node è prerequisito del setup).
         #[cfg(target_os = "windows")]

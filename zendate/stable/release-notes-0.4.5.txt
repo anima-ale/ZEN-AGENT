@@ -1,0 +1,1 @@
+- Autonomia TOTALE nel setup bianco: motore e runtime C++ integrati come risorse (niente Node/npm), exe con CRT statico, runtime auto-installato al primo avvio se manca.

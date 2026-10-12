@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.4.5]
+- Autonomia TOTALE nel setup bianco: motore e runtime C++ integrati come risorse (niente Node/npm), exe con CRT statico, runtime auto-installato al primo avvio se manca.
+
 ## [0.4.4]
 - Setup tornato a quello bianco di Tauri (con tuo logo): niente più installer scuro. Nota: senza motore e runtime integrati, su PC freschi servono Node/opencode dal sistema.
 
