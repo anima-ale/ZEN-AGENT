@@ -1,6 +1,6 @@
 {
-    "version":  "0.7.2",
-    "notes":  "- TITAN anti-loop: un trigger alla volta, 2s di calma dopo ogni chiusura, generazioni di sessione (chiusure e parole orfane ignorate), wake che riparte dopo la chiusura. La finestrella non flasha più e la X chiude davvero.",
+    "version":  "0.7.3",
+    "notes":  "- Voce staccata per ora: via microfonino e ingranaggio dal pannello, via voce dal tray, niente hotkey, wake-word sempre spenta (codice dormiente, torna quando vuoi).\n- Blindatura dati: cartella dati leggibile dal solo utente (ACL), attività e cache offuscate su disco con migrazione automatica.",
     "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/latest/download/ZEN-AGENT_x64-setup.exe",
-    "sha256":  "291c6a5b9a2d75e85e7fc66b05c742a54ac5f7876962662cfaa645e05d55a044"
+    "sha256":  "5ea358d94fb07590950731287a1e75bb28ed96efab034d504a257ea287e90d99"
 }

@@ -579,7 +579,16 @@ fn load_tasks(app: &tauri::AppHandle) -> Vec<AgentTask> {
     let Ok(text) = std::fs::read_to_string(&f) else {
         return vec![];
     };
-    serde_json::from_str(&text).unwrap_or_default()
+    // Prima i file nuovi (offuscati), poi i vecchi in chiaro (migrazione).
+    if let Ok(v) = serde_json::from_str::<Vec<AgentTask>>(&text) {
+        return v;
+    }
+    if let Some(raw) = deobf(text.trim()) {
+        if let Ok(s) = String::from_utf8(raw) {
+            return serde_json::from_str(&s).unwrap_or_default();
+        }
+    }
+    vec![]
 }
 
 fn save_tasks(app: &tauri::AppHandle, tasks: &[AgentTask]) {
@@ -588,7 +597,7 @@ fn save_tasks(app: &tauri::AppHandle, tasks: &[AgentTask]) {
         let _ = std::fs::create_dir_all(parent);
     }
     if let Ok(text) = serde_json::to_string_pretty(tasks) {
-        let _ = std::fs::write(&f, text);
+        let _ = std::fs::write(&f, obf(text.as_bytes()));
     }
 }
 
@@ -1663,7 +1672,8 @@ async fn agent_run(
     .map_err(|e| format!("task fallito: {e}"))?
 }
 
-/// ZEN TITAN (voce): mostra la finestrella e avvia l'ascolto del comando.
+/// ZEN TITAN (voce, DISATTIVATO per ora): finestrella dormiente.
+#[allow(dead_code)]
 fn show_voice_window(app: &tauri::AppHandle) {
     if let Some(w) = app.get_webview_window("voice") {
         let _ = w.show();
@@ -1694,12 +1704,11 @@ fn voice_file(app: &tauri::AppHandle) -> PathBuf {
         .join("voice-listen.txt")
 }
 
-/// Ascolto wake-word "zen" sempre attivo (microfono acceso, disattivabile).
+/// Ascolto wake-word "zen": STACCATO per ora, ritorna sempre spento.
+/// Il microfono non viene mai aperto da nessuna parte.
 #[tauri::command]
-fn get_voice_listen(app: tauri::AppHandle) -> bool {
-    std::fs::read_to_string(voice_file(&app))
-        .map(|s| s.trim() != "off")
-        .unwrap_or(true)
+fn get_voice_listen(_app: tauri::AppHandle) -> bool {
+    false
 }
 
 #[tauri::command]
@@ -1778,6 +1787,78 @@ fn cache_dir() -> PathBuf {
     home_dir().join(".zen-agent").join("cache")
 }
 
+/// Offuscamento anti-occhi-indiscreti (NON è cifratura vera): XOR + hex.
+/// Chi apre i file col file manager vede spazzatura, non le tue frasi.
+/// Contro un hacker motivato vale solo BitLocker + password Windows.
+const OBF_KEY: &[u8] = b"ZEN-LAB-obili-7-nebula-titan";
+
+fn obf(data: &[u8]) -> String {
+    let mut s = String::with_capacity(data.len() * 2);
+    for (i, b) in data.iter().enumerate() {
+        s.push_str(&format!("{:02x}", b ^ OBF_KEY[i % OBF_KEY.len()]));
+    }
+    s
+}
+
+fn deobf(s: &str) -> Option<Vec<u8>> {
+    let b = s.as_bytes();
+    if b.len() % 2 != 0 || b.is_empty() {
+        return None;
+    }
+    let hex = |c: u8| -> Option<u8> {
+        match c {
+            b'0'..=b'9' => Some(c - b'0'),
+            b'a'..=b'f' => Some(c - b'a' + 10),
+            b'A'..=b'F' => Some(c - b'A' + 10),
+            _ => None,
+        }
+    };
+    let mut out = Vec::with_capacity(b.len() / 2);
+    let mut i = 0;
+    while i < b.len() {
+        out.push(hex(b[i])? << 4 | hex(b[i + 1])?);
+        i += 2;
+    }
+    let keyed: Vec<u8> = out
+        .iter()
+        .enumerate()
+        .map(|(j, x)| x ^ OBF_KEY[j % OBF_KEY.len()])
+        .collect();
+    Some(keyed)
+}
+
+fn read_sealed(text: &str) -> Option<serde_json::Value> {
+    if let Ok(v) = serde_json::from_str(text) {
+        return Some(v); // vecchio file in chiaro: si legge e si migra al salvataggio
+    }
+    let raw = deobf(text.trim())?;
+    let s = String::from_utf8(raw).ok()?;
+    serde_json::from_str(&s).ok()
+}
+
+/// Blindatura cartella dati: solo l'utente corrente può leggerla e scriverla.
+/// Chiude fuori gli altri utenti del PC che frugano col file manager.
+#[cfg(target_os = "windows")]
+fn lockdown_data_dir(app: &tauri::AppHandle) {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .unwrap_or_else(|_| home_dir().join(".zen-agent"));
+    let _ = std::fs::create_dir_all(&dir);
+    let Ok(user) = std::env::var("USERNAME") else {
+        return;
+    };
+    if user.trim().is_empty() {
+        return;
+    }
+    let d = dir.to_string_lossy().to_string();
+    let mut c = std::process::Command::new("icacls");
+    c.args([d.as_str(), "/inheritance:r", "/grant:r", &format!("{user}:F")]);
+    silence(&mut c);
+    c.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    let _ = c.status();
+}
+
 fn fnv1a(s: &str) -> u64 {
     let mut h: u64 = 0xcbf29ce484222325;
     for b in s.bytes() {
@@ -1790,7 +1871,7 @@ fn fnv1a(s: &str) -> u64 {
 fn cache_get(prompt: &str) -> Option<String> {
     let f = cache_dir().join(format!("{:016x}.json", fnv1a(prompt)));
     let text = std::fs::read_to_string(&f).ok()?;
-    let v: serde_json::Value = serde_json::from_str(&text).ok()?;
+    let v = read_sealed(&text)?;
     if now_secs().saturating_sub(v.get("t")?.as_u64()?) > 86400 {
         let _ = std::fs::remove_file(&f);
         return None;
@@ -1815,7 +1896,10 @@ fn cache_put(prompt: &str, resp: &str) {
         }
     }
     let v = serde_json::json!({"t": now_secs(), "r": resp});
-    let _ = std::fs::write(dir.join(format!("{:016x}.json", fnv1a(prompt))), v.to_string());
+    let _ = std::fs::write(
+        dir.join(format!("{:016x}.json", fnv1a(prompt))),
+        obf(v.to_string().as_bytes()),
+    );
 }
 
 /// Warm-up gratis all'avvio (modelli free, costo zero): scalda exe,
@@ -2419,7 +2503,6 @@ fn main() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             show_panel_window(app);
         }))
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(state)
         .invoke_handler(tauri::generate_handler![
             show_panel,
@@ -2470,9 +2553,8 @@ fn main() {
                 use tauri::menu::{Menu, MenuItem};
                 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
                 let show = MenuItem::with_id(app, "show", "Mostra ZEN-AGENT", true, None::<&str>)?;
-                let voice = MenuItem::with_id(app, "voice", "Parla con ZEN TITAN", true, None::<&str>)?;
                 let quit = MenuItem::with_id(app, "quit", "Esci", true, None::<&str>)?;
-                let menu = Menu::with_items(app, &[&show, &voice, &quit])?;
+                let menu = Menu::with_items(app, &[&show, &quit])?;
                 let mut builder = TrayIconBuilder::with_id("main").menu(&menu);
                 builder = builder.show_menu_on_left_click(false);
                 if let Some(icon) = app.default_window_icon().cloned() {
@@ -2482,7 +2564,6 @@ fn main() {
                 let _tray = builder
                     .on_menu_event(|app, event| match event.id.as_ref() {
                         "show" => show_panel_window(app),
-                        "voice" => show_voice_window(app),
                         "quit" => app.exit(0),
                         _ => {}
                     })
@@ -2509,18 +2590,12 @@ fn main() {
 
             setup_drop_tracker(app.handle());
             ensure_serve_daemon();
-            // Hotkey globale Ctrl+Shift+Z: apre ZEN TITAN da dovunque.
-            #[cfg(desktop)]
+            // Voce disattivata per ora: nessun hotkey, nessun ascolto.
+            // Blindatura dati in background (non blocca l'avvio).
+            #[cfg(target_os = "windows")]
             {
-                use tauri_plugin_global_shortcut::GlobalShortcutExt;
-                if app.global_shortcut().register("ctrl+shift+z").is_ok() {
-                    let _ = app.global_shortcut().on_shortcut("ctrl+shift+z", |app, _sc, event| {
-                        use tauri_plugin_global_shortcut::ShortcutState;
-                        if event.state == ShortcutState::Pressed {
-                            show_voice_window(app);
-                        }
-                    });
-                }
+                let handle = app.handle().clone();
+                std::thread::spawn(move || lockdown_data_dir(&handle));
             }
             // ripara db + imposta free model in background senza bloccare l'avvio
             std::thread::spawn(|| {

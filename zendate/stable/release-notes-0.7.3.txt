@@ -1,0 +1,2 @@
+- Voce staccata per ora: via microfonino e ingranaggio dal pannello, via voce dal tray, niente hotkey, wake-word sempre spenta (codice dormiente, torna quando vuoi).
+- Blindatura dati: cartella dati leggibile dal solo utente (ACL), attività e cache offuscate su disco con migrazione automatica.

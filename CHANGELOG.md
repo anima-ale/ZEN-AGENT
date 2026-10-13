@@ -1,5 +1,9 @@
 # Changelog ZEN-AGENT
 
+## [0.7.3]
+- Voce staccata per ora: via microfonino e ingranaggio dal pannello, via voce dal tray, niente hotkey, wake-word sempre spenta (codice dormiente, torna quando vuoi).
+- Blindatura dati: cartella dati leggibile dal solo utente (ACL), attività e cache offuscate su disco con migrazione automatica.
+
 ## [0.7.2]
 - TITAN anti-loop: un trigger alla volta, 2s di calma dopo ogni chiusura, generazioni di sessione (chiusure e parole orfane ignorate), wake che riparte dopo la chiusura. La finestrella non flasha più e la X chiude davvero.
 
