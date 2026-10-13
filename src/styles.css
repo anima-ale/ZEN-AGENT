@@ -234,6 +234,15 @@ button:focus-visible, textarea:focus-visible {
   letter-spacing: 0.04em;
   color: var(--text-sub);
   border-bottom: 1px solid var(--border);
+  min-height: 34px;
+}
+#status-bar #snake-btn { margin-left: auto; }
+#status-text {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 #status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-sub); flex-shrink: 0; }
 #status-dot.ok { background: var(--ok); }
@@ -318,6 +327,30 @@ button:focus-visible, textarea:focus-visible {
   white-space: pre-wrap;
 }
 .msg.agent { align-self: stretch; white-space: pre-wrap; }
+/* azioni contestuali: solo in hover, mai cromo fisso */
+.msg.md-wrap { position: relative; }
+.msg-actions {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.msg.md-wrap:hover .msg-actions { opacity: 1; }
+.msg-actions button {
+  width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.msg-actions button svg { width: 13px; height: 13px; }
+.msg-actions button:hover { color: var(--gold); border-color: var(--border-strong); }
+.msg-actions button:active { transform: scale(0.94); }
 .msg.system {
   align-self: center;
   font-family: var(--mono);
@@ -363,7 +396,11 @@ button:focus-visible, textarea:focus-visible {
 .attach-chip button:hover { color: var(--err); }
 
 /* ============ barra input editoriale (unico vetro NEO 1) ============ */
-#composer { padding: 10px; }
+#composer {
+  padding: 10px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
 .unified-input-wrapper {
   display: flex;
   flex-direction: column;
@@ -379,14 +416,14 @@ button:focus-visible, textarea:focus-visible {
   transition: border-color 0.15s ease;
 }
 .unified-input-wrapper:hover { border-color: rgba(255, 255, 255, 0.14); }
-.unified-input-wrapper:focus-within { border-color: rgba(232, 176, 75, 0.4); }
+.unified-input-wrapper:focus-within { border-color: var(--gold); }
 #prompt {
   background: transparent;
   border: none;
   color: var(--text);
   caret-color: var(--gold);
   padding: 0;
-  font-family: Georgia, "Newsreader", serif;
+  font-family: inherit;
   font-size: 1rem;
   line-height: 1.6;
   outline: none;

@@ -17,6 +17,7 @@ interface Msg {
   id: number;
   who: "user" | "agent" | "system";
   text: string;
+  t?: number;
 }
 
 let nextId = 1;
@@ -150,6 +151,8 @@ const P = {
   clip: "M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48",
   send: "M22 2L11 13 M22 2l-7 20-4-9-9-4 20-7z",
   x: "M18 6L6 18 M6 6l12 12",
+  copy: "M9 9h11v11H9z M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1",
+  retry: "M1 4v6h6 M3.5 15a9 9 0 1 0 .5-5L1 10",
   mic: "M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z M19 10v2a7 7 0 0 1-14 0v-2 M12 19v4 M8 23h8",
   clock: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 6v6l4 2",
   trash: "M3 6h18 M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6 M10 11v6 M14 11v6",
@@ -239,7 +242,7 @@ export default function PanelApp() {
   }, [busy]);
 
   const push = useCallback((who: Msg["who"], text: string) => {
-    setMessages((m) => [...m, { id: nextId++, who, text }]);
+    setMessages((m) => [...m, { id: nextId++, who, text, t: Date.now() }]);
   }, []);
 
   const addFiles = useCallback(
@@ -294,6 +297,15 @@ export default function PanelApp() {
     refreshStatus();
     const t = window.setInterval(refreshStatus, 8000);
     checkForUpdates(true);
+
+    // Ctrl+K salta all'input da dovunque nel pannello
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        document.getElementById("prompt")?.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
 
     let alive = true;
     const unlistens: Array<() => void> = [];
@@ -362,6 +374,7 @@ export default function PanelApp() {
     return () => {
       alive = false;
       window.clearInterval(t);
+      window.removeEventListener("keydown", onKey);
       unlistens.forEach((u) => u());
     };
   }, [refreshStatus, checkForUpdates, addFiles]);
@@ -370,13 +383,17 @@ export default function PanelApp() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, busy]);
 
-  // Nucleo invio: crea il messaggio agente live e ritorna la risposta finale.
-  // Usato sia dal composer sia dai messaggi arrivati dal telefono.
-  const runAgent = async (promptText: string, attached: string[]): Promise<string> => {
-    const id = nextId++;
+  // Nucleo invio: crea (o riusa per "rifai") il messaggio agente live
+  // e ritorna la risposta finale. Usato da composer, telefono e retry.
+  const runAgent = async (promptText: string, attached: string[], targetId?: number): Promise<string> => {
+    const id = targetId ?? nextId++;
     liveId.current = id;
     setThinking(null);
-    setMessages((m) => [...m, { id, who: "agent", text: "" }]);
+    if (targetId == null) {
+      setMessages((m) => [...m, { id, who: "agent", text: "", t: Date.now() }]);
+    } else {
+      setMessages((m) => m.map((msg) => (msg.id === id ? { ...msg, text: "" } : msg)));
+    }
     try {
       const out = await api.run(promptText, auto, attached);
       const finalText = out || "(nessun output)";
@@ -408,6 +425,18 @@ export default function PanelApp() {
     }
   };
 
+  const finishRun = () => {
+    busyRef.current = false;
+    setBusy(false);
+    setBusySecs(0);
+    api.hideGame().catch(() => undefined);
+    if (hiddenWhileBusy.current) {
+      hiddenWhileBusy.current = false;
+      api.notifyReady().catch(() => undefined);
+    }
+    drainPhone();
+  };
+
   const send = async () => {
     const text = prompt.trim();
     if (!text || busyRef.current) return;
@@ -419,15 +448,7 @@ export default function PanelApp() {
     push("user", attached.length ? `${text}\n[allegati: ${attached.map(fileName).join(", ")}]` : text);
     await runAgent(text, attached);
     // risposta arrivata: se eri chiuso nella goccia, notifica con suono + pallino
-    busyRef.current = false;
-    setBusy(false);
-    setBusySecs(0);
-    api.hideGame().catch(() => undefined);
-    if (hiddenWhileBusy.current) {
-      hiddenWhileBusy.current = false;
-      api.notifyReady().catch(() => undefined);
-    }
-    drainPhone();
+    finishRun();
   };
 
   // Fa partire il messaggio in coda (se libero), dopo ogni run.
@@ -449,17 +470,36 @@ export default function PanelApp() {
     setBusy(true);
     push("user", `telefono: ${text}`);
     const ans = await runAgent(text, []);
-    busyRef.current = false;
-    setBusy(false);
-    setBusySecs(0);
+    finishRun();
     api.phoneAnswer(pid, ans).catch(() => undefined);
-    if (hiddenWhileBusy.current) {
-      hiddenWhileBusy.current = false;
-      api.notifyReady().catch(() => undefined);
-    }
-    drainPhone();
   };
   runPhoneRef.current = runPhone;
+
+  // Azioni contestuali del messaggio: copia + rifai (solo in hover).
+  const copyMsg = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      /* appunti bloccati: ignora */
+    }
+  };
+
+  const retryMsg = async (id: number) => {
+    if (busyRef.current) return;
+    const idx = messages.findIndex((m) => m.id === id);
+    if (idx < 0) return;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (messages[i].who === "user") {
+        const t = messages[i].text.replace(/\n\[allegati:.*\]$/, "").trim();
+        if (!t) return;
+        busyRef.current = true;
+        setBusy(true);
+        await runAgent(t, [], id);
+        finishRun();
+        return;
+      }
+    }
+  };
 
   const doRepair = async () => {
     setRepairing(true);
@@ -558,8 +598,27 @@ export default function PanelApp() {
         </div>
 
         <div id="status-bar">
-          <span id="status-dot" className={dotClass} />
-          <span id="status-text">{statusText}</span>
+          {busy ? <ThinkOrb /> : <span id="status-dot" className={dotClass} />}
+          <span id="status-text">
+            {busy ? (
+              thinking ? (
+                <span id="think-thoughts">{thinking}</span>
+              ) : (
+                <>pensa<span className="gold-dots"><span>.</span><span>.</span><span>.</span></span></>
+              )
+            ) : (
+              statusText
+            )}
+          </span>
+          {busy && busySecs >= 20 && (
+            <button
+              id="snake-btn"
+              title="Apri Snake mentre aspetti"
+              onClick={() => api.showGame().catch(() => undefined)}
+            >
+              gioca a snake
+            </button>
+          )}
         </div>
 
         {needsRepair && (
@@ -592,36 +651,25 @@ export default function PanelApp() {
         <div id="messages" ref={scrollRef}>
           {messages.map((m) =>
             m.who === "agent" ? (
-              <div
-                key={m.id}
-                className="msg agent md"
-                dangerouslySetInnerHTML={{ __html: m.text ? renderMarkdown(m.text) : "<div class=\"md-p\">…</div>" }}
-              />
+              <div key={m.id} className="msg agent md-wrap" title={m.t ? new Date(m.t).toLocaleString() : undefined}>
+                <div
+                  className="msg agent md"
+                  dangerouslySetInnerHTML={{ __html: m.text ? renderMarkdown(m.text) : "<div class=\"md-p\">…</div>" }}
+                />
+                <div className="msg-actions">
+                  <button title="Copia risposta" onClick={() => copyMsg(m.text)}>
+                    <Icon d={P.copy} />
+                  </button>
+                  <button title="Rifai risposta" onClick={() => retryMsg(m.id)}>
+                    <Icon d={P.retry} />
+                  </button>
+                </div>
+              </div>
             ) : (
-              <div key={m.id} className={`msg ${m.who}`}>{m.text}</div>
+              <div key={m.id} className={`msg ${m.who}`} title={m.t ? new Date(m.t).toLocaleString() : undefined}>{m.text}</div>
             ),
           )}
         </div>
-
-        {busy && (
-          <div id="think-bar">
-            <ThinkOrb />
-            {thinking ? (
-              <span id="think-thoughts">{thinking}</span>
-            ) : (
-              <span id="think-text">ZEN Nebula pensa<span className="gold-dots"><span>.</span><span>.</span><span>.</span></span></span>
-            )}
-            {busySecs >= 20 && (
-              <button
-                id="snake-btn"
-                title="Apri Snake mentre aspetti"
-                onClick={() => api.showGame().catch(() => undefined)}
-              >
-                gioca a snake
-              </button>
-            )}
-          </div>
-        )}
 
         {files.length > 0 && (
           <div id="attach-bar">

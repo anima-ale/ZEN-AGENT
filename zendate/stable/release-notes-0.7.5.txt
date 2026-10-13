@@ -1,0 +1,1 @@
+- Evoluzione interfaccia: riga di stato unica (niente più doppia barra), input con bordo oro pieno al focus, azioni copia/rifai solo in hover sui messaggi, due pesi tipografici (sans per tutto, mono solo per stati/numeri), ora dei messaggi in hover, Ctrl+K per saltare all'input.

@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.7.5]
+- Evoluzione interfaccia: riga di stato unica (niente più doppia barra), input con bordo oro pieno al focus, azioni copia/rifai solo in hover sui messaggi, due pesi tipografici (sans per tutto, mono solo per stati/numeri), ora dei messaggi in hover, Ctrl+K per saltare all'input.
+
 ## [0.7.4]
 - Ingranaggio ripristinato nel pannello (tolto per errore). Via solo il pulsante "rispondi a zen" dalle impostazioni; microfonino sempre fuori, voce sempre spenta.
 

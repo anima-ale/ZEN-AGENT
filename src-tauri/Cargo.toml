@@ -1,6 +1,6 @@
 [package]
 name = "ZEN-AGENT"
-version = "0.7.4"
+version = "0.7.5"
 description = "ZEN-AGENT - goccia liquid-glass + pannello fluttuante, motore opencode, sempre attivo"
 authors = ["Zen"]
 edition = "2021"

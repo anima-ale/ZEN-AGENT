@@ -1,6 +1,6 @@
 {
-    "version":  "0.7.4",
-    "notes":  "- Ingranaggio ripristinato nel pannello (tolto per errore). Via solo il pulsante \"rispondi a zen\" dalle impostazioni; microfonino sempre fuori, voce sempre spenta.",
+    "version":  "0.7.5",
+    "notes":  "- Evoluzione interfaccia: riga di stato unica (niente più doppia barra), input con bordo oro pieno al focus, azioni copia/rifai solo in hover sui messaggi, due pesi tipografici (sans per tutto, mono solo per stati/numeri), ora dei messaggi in hover, Ctrl+K per saltare all\u0027input.",
     "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/latest/download/ZEN-AGENT_x64-setup.exe",
-    "sha256":  "1a94fed05627fdcb4109c193a489298a6ae750aac4393976f73df108cec26eed"
+    "sha256":  "4f5a5432a88b41e7d8c7a5c4102862ea42478dec646801022c9e32a5f1950001"
 }
