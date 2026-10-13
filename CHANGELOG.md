@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.7.4]
+- Ingranaggio ripristinato nel pannello (tolto per errore). Via solo il pulsante "rispondi a zen" dalle impostazioni; microfonino sempre fuori, voce sempre spenta.
+
 ## [0.7.3]
 - Voce staccata per ora: via microfonino e ingranaggio dal pannello, via voce dal tray, niente hotkey, wake-word sempre spenta (codice dormiente, torna quando vuoi).
 - Blindatura dati: cartella dati leggibile dal solo utente (ACL), attività e cache offuscate su disco con migrazione automatica.

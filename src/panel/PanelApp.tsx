@@ -546,6 +546,9 @@ export default function PanelApp() {
           <button className="icon-btn" title="Cerca aggiornamenti" onClick={() => checkForUpdates(false)} disabled={checking}>
             <Icon d={P.refresh} />
           </button>
+          <button className="icon-btn" title="Impostazioni" onClick={() => api.showSettings().catch(() => undefined)}>
+            <Icon d={P.gear} />
+          </button>
           <button className="icon-btn" title="Elimina definitivamente la chat" onClick={clearHistory}>
             <Icon d={P.trash} />
           </button>

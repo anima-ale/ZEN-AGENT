@@ -1,6 +1,6 @@
 {
-    "version":  "0.7.3",
-    "notes":  "- Voce staccata per ora: via microfonino e ingranaggio dal pannello, via voce dal tray, niente hotkey, wake-word sempre spenta (codice dormiente, torna quando vuoi).\n- Blindatura dati: cartella dati leggibile dal solo utente (ACL), attività e cache offuscate su disco con migrazione automatica.",
+    "version":  "0.7.4",
+    "notes":  "- Ingranaggio ripristinato nel pannello (tolto per errore). Via solo il pulsante \"rispondi a zen\" dalle impostazioni; microfonino sempre fuori, voce sempre spenta.",
     "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/latest/download/ZEN-AGENT_x64-setup.exe",
-    "sha256":  "5ea358d94fb07590950731287a1e75bb28ed96efab034d504a257ea287e90d99"
+    "sha256":  "1a94fed05627fdcb4109c193a489298a6ae750aac4393976f73df108cec26eed"
 }

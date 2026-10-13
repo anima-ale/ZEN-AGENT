@@ -1,0 +1,1 @@
+- Ingranaggio ripristinato nel pannello (tolto per errore). Via solo il pulsante "rispondi a zen" dalle impostazioni; microfonino sempre fuori, voce sempre spenta.
