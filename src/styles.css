@@ -428,7 +428,8 @@ button:focus-visible, textarea:focus-visible {
   line-height: 1.6;
   outline: none;
   resize: none;
-  height: 52px;
+  min-height: 52px;
+  height: auto;
   width: 100%;
 }
 #prompt::placeholder { color: var(--text-faint); font-style: italic; }

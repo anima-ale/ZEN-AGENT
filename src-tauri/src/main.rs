@@ -806,13 +806,184 @@ fn set_sound(app: tauri::AppHandle, sound: String) -> Result<(), String> {
     std::fs::write(&f, &sound).map_err(|e| e.to_string())
 }
 
+/// Scorciatoia universale: apre sempre ZEN, anche se dimentichi la tua.
+const HOTKEY_UNIVERSAL: &str = "ctrl+alt+z";
+/// Sequenza personale di default (cambiabile dalle impostazioni).
+const HOTKEY_DEFAULT: &str = "ctrl+shift+z";
+
+static DROP_HIDDEN: AtomicBool = AtomicBool::new(false);
+
+fn hotkey_file(app: &tauri::AppHandle) -> PathBuf {
+    app.path()
+        .app_data_dir()
+        .unwrap_or_else(|_| home_dir().join(".zen-agent"))
+        .join("hotkey.txt")
+}
+
+fn drop_hidden_file(app: &tauri::AppHandle) -> PathBuf {
+    app.path()
+        .app_data_dir()
+        .unwrap_or_else(|_| home_dir().join(".zen-agent"))
+        .join("drop-hidden.txt")
+}
+
+fn stored_hotkey(app: &tauri::AppHandle) -> String {
+    std::fs::read_to_string(hotkey_file(app))
+        .ok()
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| valid_hotkey(s))
+        .unwrap_or_else(|| HOTKEY_DEFAULT.to_string())
+}
+
+fn stored_drop_hidden(app: &tauri::AppHandle) -> bool {
+    std::fs::read_to_string(drop_hidden_file(app))
+        .map(|s| s.trim() == "on")
+        .unwrap_or(false)
+}
+
+/// "ctrl+shift+q": modificatori + tasto singolo/F1-F12/space/enter/tab/esc.
+fn valid_hotkey(s: &str) -> bool {
+    let parts: Vec<&str> = s.split('+').map(str::trim).collect();
+    if parts.len() < 2 || parts.len() > 4 {
+        return false;
+    }
+    let (keys, mods): (Vec<&&str>, Vec<&&str>) =
+        parts.iter().partition(|p| ["ctrl", "shift", "alt", "super", "meta"].contains(p));
+    if mods.is_empty() || keys.len() != 1 {
+        return false;
+    }
+    let k = keys[0].to_string();
+    if k.len() == 1 {
+        return true;
+    }
+    [
+        "space", "enter", "tab", "escape", "esc", "backspace", "delete", "insert", "home", "end",
+        "pageup", "pagedown", "up", "down", "left", "right",
+    ]
+    .contains(&k.as_str())
+        || (k.len() <= 3 && k.starts_with('f') && k[1..].parse::<u8>().map(|n| n >= 1 && n <= 24).unwrap_or(false))
+}
+
+/// Registra universale + personale (la personale può coincidere: una sola).
+#[cfg(desktop)]
+fn apply_hotkeys(app: &tauri::AppHandle, custom: &str) {
+    use tauri_plugin_global_shortcut::GlobalShortcutExt;
+    let gs = app.global_shortcut();
+    let _ = gs.unregister_all();
+    let _ = gs.register(HOTKEY_UNIVERSAL);
+    if custom != HOTKEY_UNIVERSAL {
+        let _ = gs.register(custom);
+    }
+    let open = |app: &tauri::AppHandle| show_panel_window(app);
+    let _ = gs.on_shortcut(HOTKEY_UNIVERSAL, move |app, _sc, event| {
+        use tauri_plugin_global_shortcut::ShortcutState;
+        if event.state == ShortcutState::Pressed {
+            open(app);
+        }
+    });
+    let custom_owned = custom.to_string();
+    let _ = gs.on_shortcut(custom_owned.as_str(), move |app, _sc, event| {
+        use tauri_plugin_global_shortcut::ShortcutState;
+        if event.state == ShortcutState::Pressed {
+            open(app);
+        }
+    });
+}
+
+#[tauri::command]
+fn get_hotkey(app: tauri::AppHandle) -> String {
+    stored_hotkey(&app)
+}
+
+#[tauri::command]
+fn set_hotkey(app: tauri::AppHandle, seq: String) -> Result<String, String> {
+    let s = seq.trim().to_lowercase().replace(' ', "");
+    if !valid_hotkey(&s) {
+        return Err("sequenza non valida: servono Ctrl o Alt + un tasto (es. ctrl+shift+q)".into());
+    }
+    let f = hotkey_file(&app);
+    if let Some(p) = f.parent() {
+        let _ = std::fs::create_dir_all(p);
+    }
+    std::fs::write(&f, &s).map_err(|e| e.to_string())?;
+    #[cfg(desktop)]
+    apply_hotkeys(&app, &s);
+    Ok(s)
+}
+
+#[tauri::command]
+fn get_drop_hidden(app: tauri::AppHandle) -> bool {
+    DROP_HIDDEN.load(Ordering::SeqCst) || stored_drop_hidden(&app)
+}
+
+#[tauri::command]
+fn set_drop_hidden(app: tauri::AppHandle, hidden: bool) -> Result<(), String> {
+    DROP_HIDDEN.store(hidden, Ordering::SeqCst);
+    let f = drop_hidden_file(&app);
+    if let Some(p) = f.parent() {
+        let _ = std::fs::create_dir_all(p);
+    }
+    std::fs::write(&f, if hidden { "on" } else { "off" }).map_err(|e| e.to_string())?;
+    if hidden {
+        if let Some(w) = app.get_webview_window("drop") {
+            let _ = w.hide();
+        }
+    }
+    Ok(())
+}
+
+/// Finestra pannello elastica: cresce da sotto oltre le 7 righe, poi torna.
+static PANEL_BASE: Mutex<Option<(u32, u32)>> = Mutex::new(None);
+
+#[tauri::command]
+fn panel_grow(app: tauri::AppHandle, extra: u32) -> Result<(), String> {
+    let Some(w) = app.get_webview_window("panel") else {
+        return Ok(());
+    };
+    let scale = w.scale_factor().unwrap_or(1.0);
+    let cur = w.outer_size().map_err(|e| e.to_string())?;
+    let (bw, bh) = {
+        let mut base = PANEL_BASE.lock().unwrap();
+        if base.is_none() {
+            *base = Some((
+                (cur.width as f64 / scale).round() as u32,
+                (cur.height as f64 / scale).round() as u32,
+            ));
+        }
+        base.unwrap()
+    };
+    let nh = (bh + extra.min(420)).min(940);
+    w.set_size(tauri::Size::Logical(tauri::LogicalSize {
+        width: bw as f64,
+        height: nh as f64,
+    }))
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn panel_rest(app: tauri::AppHandle) -> Result<(), String> {
+    let Some(w) = app.get_webview_window("panel") else {
+        return Ok(());
+    };
+    if let Some((bw, bh)) = *PANEL_BASE.lock().unwrap() {
+        let _ = w.set_size(tauri::Size::Logical(tauri::LogicalSize {
+            width: bw as f64,
+            height: bh as f64,
+        }));
+    }
+    Ok(())
+}
+
 /// ZEN Nebula ha risposto mentre il pannello era chiuso: la goccia scende
 /// con pallino rosso + suono (scelto nelle impostazioni).
 #[tauri::command]
 fn notify_response_ready(app: tauri::AppHandle) -> Result<(), String> {
     RESPONSE_PENDING.store(true, Ordering::SeqCst);
     NOTIFY_PINNED.store(true, Ordering::SeqCst);
-    if let Some(w) = app.get_webview_window("drop") {
+    if DROP_HIDDEN.load(Ordering::SeqCst) {
+        // Senza goccia non c'è dove mostrare il pallino: si apre il pannello.
+        show_panel_window(&app);
+    } else if let Some(w) = app.get_webview_window("drop") {
         let _ = w.show();
         let _ = w.emit("zen-drop-state", true);
     }
@@ -1740,12 +1911,16 @@ fn hide_game(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// Chiudi il pannello animandolo verso l'alto: diventa il rettangolino ZEN.
+/// Chiudi il pannello animandolo verso l'alto: diventa il rettangolino ZEN
+/// (o sparisce del tutto se la goccia è nascosta dalle impostazioni).
 /// Nasconde il panel, mostra la drop per ~2.5s come feedback visivo.
 #[tauri::command]
 fn minimize_to_drop(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(p) = app.get_webview_window("panel") {
         let _ = p.hide();
+    }
+    if DROP_HIDDEN.load(Ordering::SeqCst) {
+        return Ok(());
     }
     if let Some(w) = app.get_webview_window("drop") {
         let _ = w.show();
@@ -2402,6 +2577,13 @@ fn setup_drop_tracker(app: &tauri::AppHandle) {
         let Some(w) = handle.get_webview_window("drop") else {
             continue;
         };
+        // Goccia nascosta dalle impostazioni: resta giù, punto.
+        if DROP_HIDDEN.load(Ordering::SeqCst) {
+            if w.is_visible().unwrap_or(false) {
+                let _ = w.hide();
+            }
+            continue;
+        };
         #[cfg(target_os = "windows")]
         let (cx, cy) = winmouse::cursor();
         #[cfg(not(target_os = "windows"))]
@@ -2503,6 +2685,7 @@ fn main() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             show_panel_window(app);
         }))
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(state)
         .invoke_handler(tauri::generate_handler![
             show_panel,
@@ -2539,6 +2722,12 @@ fn main() {
             repair_opencode_db,
             set_drop_pinned,
             set_drop_dragging,
+            get_hotkey,
+            set_hotkey,
+            get_drop_hidden,
+            set_drop_hidden,
+            panel_grow,
+            panel_rest,
             phone_start,
             phone_stop,
             phone_status,
@@ -2590,7 +2779,15 @@ fn main() {
 
             setup_drop_tracker(app.handle());
             ensure_serve_daemon();
-            // Voce disattivata per ora: nessun hotkey, nessun ascolto.
+            // Voce disattivata per ora: nessun hotkey vocale, nessun ascolto.
+            // Goccia: ripristina "nascosta" se l'utente l'aveva tolta.
+            // Hotkey: universale fissa + personale dalle impostazioni.
+            {
+                let handle = app.handle().clone();
+                DROP_HIDDEN.store(stored_drop_hidden(&handle), Ordering::SeqCst);
+                #[cfg(desktop)]
+                apply_hotkeys(&handle, &stored_hotkey(&handle));
+            }
             // Blindatura dati in background (non blocca l'avvio).
             #[cfg(target_os = "windows")]
             {

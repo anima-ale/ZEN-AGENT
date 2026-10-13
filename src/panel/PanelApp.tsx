@@ -210,6 +210,35 @@ export default function PanelApp() {
   const [closing, setClosing] = useState(false);
   const [thinking, setThinking] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Input elastico: cresce col testo, oltre 7 righe allunga la finestra
+  const taRef = useRef<HTMLTextAreaElement | null>(null);
+  const grownRef = useRef(0);
+  const ROW_PX = 26;
+
+  const adjustInput = useCallback(() => {
+    const el = taRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const full = Math.min(el.scrollHeight, ROW_PX * 20);
+    el.style.height = `${Math.max(full, ROW_PX * 2)}px`;
+    el.style.overflowY = full >= ROW_PX * 20 ? "auto" : "hidden";
+    // Oltre 7 righe la pagina cresce da sotto per far entrare tutta la barra
+    const want = Math.min(Math.max(0, full - ROW_PX * 7), 420);
+    if (want !== grownRef.current) {
+      grownRef.current = want;
+      api.panelGrow(want).catch(() => undefined);
+    }
+  }, []);
+
+  const shrinkInput = useCallback(() => {
+    grownRef.current = 0;
+    api.panelRest().catch(() => undefined);
+    const el = taRef.current;
+    if (el) {
+      el.style.height = "auto";
+      el.style.overflowY = "hidden";
+    }
+  }, []);
   // id del messaggio agente in volo: qui si accumulano inizio + OK live
   const liveId = useRef<number | null>(null);
   // handler telefono sempre fresco per i listener registrati una volta sola
@@ -306,6 +335,7 @@ export default function PanelApp() {
       }
     };
     window.addEventListener("keydown", onKey);
+    window.setTimeout(adjustInput, 300);
 
     let alive = true;
     const unlistens: Array<() => void> = [];
@@ -441,6 +471,7 @@ export default function PanelApp() {
     const text = prompt.trim();
     if (!text || busyRef.current) return;
     setPrompt("");
+    shrinkInput();
     busyRef.current = true;
     setBusy(true);
     const attached = [...files];
@@ -693,8 +724,12 @@ export default function PanelApp() {
           <div className="unified-input-wrapper">
             <textarea
               id="prompt"
+              ref={taRef}
               value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
+              onChange={(e) => {
+                setPrompt(e.target.value);
+                window.setTimeout(adjustInput, 0);
+              }}
               placeholder="Chiedi a ZEN Nebula di fare cose sul tuo PC... (Invio = invia)"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {

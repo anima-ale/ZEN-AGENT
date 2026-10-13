@@ -1,6 +1,6 @@
 {
-    "version":  "0.7.5",
-    "notes":  "- Evoluzione interfaccia: riga di stato unica (niente più doppia barra), input con bordo oro pieno al focus, azioni copia/rifai solo in hover sui messaggi, due pesi tipografici (sans per tutto, mono solo per stati/numeri), ora dei messaggi in hover, Ctrl+K per saltare all\u0027input.",
+    "version":  "0.8.0",
+    "notes":  "- Input elastico: cresce col testo fino a 7 righe, oltre allunga la finestra da sotto; dopo l\u0027invio tutto torna piccolo.\n- Goccia nascondibile dalle impostazioni + sequenza tasti personale per aprire ZEN (universale di scorta: Ctrl+Alt+Z). Senza goccia la risposta apre il pannello da sola.",
     "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/latest/download/ZEN-AGENT_x64-setup.exe",
-    "sha256":  "4f5a5432a88b41e7d8c7a5c4102862ea42478dec646801022c9e32a5f1950001"
+    "sha256":  "9d04a37d7376ec52a3b1e773dd39fe9657680ce594dc48d00ca08fff75a1fea1"
 }

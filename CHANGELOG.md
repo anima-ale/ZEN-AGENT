@@ -1,5 +1,9 @@
 # Changelog ZEN-AGENT
 
+## [0.8.0]
+- Input elastico: cresce col testo fino a 7 righe, oltre allunga la finestra da sotto; dopo l'invio tutto torna piccolo.
+- Goccia nascondibile dalle impostazioni + sequenza tasti personale per aprire ZEN (universale di scorta: Ctrl+Alt+Z). Senza goccia la risposta apre il pannello da sola.
+
 ## [0.7.5]
 - Evoluzione interfaccia: riga di stato unica (niente più doppia barra), input con bordo oro pieno al focus, azioni copia/rifai solo in hover sui messaggi, due pesi tipografici (sans per tutto, mono solo per stati/numeri), ora dei messaggi in hover, Ctrl+K per saltare all'input.
 
