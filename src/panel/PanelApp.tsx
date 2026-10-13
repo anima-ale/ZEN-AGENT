@@ -5,6 +5,7 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import {
   api,
   fileName,
+  formatSize,
   isImage,
   onExpectFiles,
   onFilesDropped,
@@ -200,6 +201,7 @@ export default function PanelApp() {
   const [busy, setBusy] = useState(false);
   const [busySecs, setBusySecs] = useState(0);
   const [files, setFiles] = useState<string[]>([]);
+  const [preview, setPreview] = useState<{ path: string; size: number; isImage: boolean } | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [status, setStatus] = useState<AgentStatus | null>(null);
   const [update, setUpdate] = useState<UpdateInfo | null>(null);
@@ -546,10 +548,19 @@ export default function PanelApp() {
     }
   };
 
+  // Anteprima allegato: lightbox con immagine grande o scheda file.
+  const openPreview = async (f: string) => {
+    try {
+      const info = await api.fileInfo(f);
+      setPreview({ path: f, size: info.size, isImage: info.is_image });
+    } catch {
+      setPreview({ path: f, size: 0, isImage: isImage(f) });
+    }
+  };
+
   const browse = async () => {
     try {
-      const sel = await openDialog({
-        multiple: true,
+      const sel = await openDialog({        multiple: true,
         filters: [
           { name: "Immagini", extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"] },
           { name: "Tutti i file", extensions: ["*"] },
@@ -705,14 +716,19 @@ export default function PanelApp() {
         {files.length > 0 && (
           <div id="attach-bar">
             {files.map((f) => (
-              <div key={f} className="attach-chip" title={f}>
+              <div key={f} className="attach-chip" title={f} onClick={() => openPreview(f)}>
                 {isImage(f) ? (
                   <img src={convertFileSrc(f)} alt={fileName(f)} />
                 ) : (
                   <span className="file-ico">F</span>
                 )}
                 <span className="attach-name">{fileName(f)}</span>
-                <button onClick={() => setFiles((arr) => arr.filter((x) => x !== f))}>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFiles((arr) => arr.filter((x) => x !== f));
+                  }}
+                >
                   <Icon d={P.x} />
                 </button>
               </div>
@@ -736,7 +752,14 @@ export default function PanelApp() {
                   e.preventDefault();
                   send();
                 }
-                if (e.key === "Escape") minimizeUp();
+                if (e.key === "Escape") {
+                  if (preview) {
+                    e.preventDefault();
+                    setPreview(null);
+                  } else {
+                    minimizeUp();
+                  }
+                }
               }}
             />
             <div className="nib-controls">
@@ -758,6 +781,23 @@ export default function PanelApp() {
             </div>
           </div>
         </div>
+
+        {preview && (
+          <div id="preview-overlay" onClick={() => setPreview(null)}>
+            <div id="preview-card" onClick={(e) => e.stopPropagation()}>
+              {preview.isImage ? (
+                <img src={convertFileSrc(preview.path)} alt={fileName(preview.path)} />
+              ) : (
+                <span className="file-ico big">F</span>
+              )}
+              <div id="preview-name">{fileName(preview.path)}</div>
+              <div id="preview-size">{formatSize(preview.size)}</div>
+              <button id="preview-close" onClick={() => setPreview(null)}>
+                chiudi
+              </button>
+            </div>
+          </div>
+        )}
 
         {dragOver && (
           <div id="drop-overlay">

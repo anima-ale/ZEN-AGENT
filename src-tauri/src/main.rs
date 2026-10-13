@@ -945,6 +945,36 @@ fn set_drop_hidden(app: tauri::AppHandle, hidden: bool) -> Result<(), String> {
     Ok(())
 }
 
+/// Info allegato per l'anteprima (nome, peso, immagine sì/no).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct FileInfo {
+    name: String,
+    size: u64,
+    is_image: bool,
+    exists: bool,
+}
+
+#[tauri::command]
+fn file_info(path: String) -> FileInfo {
+    let p = PathBuf::from(&path);
+    let exists = p.is_file();
+    let size = std::fs::metadata(&p).map(|m| m.len()).unwrap_or(0);
+    let ext = p
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    let is_image = [
+        "png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "ico", "avif",
+    ]
+    .contains(&ext.as_str());
+    let name = p
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or(path);
+    FileInfo { name, size, is_image, exists }
+}
+
 /// Finestra pannello elastica: cresce da sotto oltre le 7 righe, poi torna.
 static PANEL_BASE: Mutex<Option<(u32, u32)>> = Mutex::new(None);
 
@@ -974,8 +1004,7 @@ fn panel_grow(app: tauri::AppHandle, extra: u32) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn panel_rest(app: tauri::AppHandle) -> Result<(), String> {
-    let Some(w) = app.get_webview_window("panel") else {
+fn panel_rest(app: tauri::AppHandle) -> Result<(), String> {    let Some(w) = app.get_webview_window("panel") else {
         return Ok(());
     };
     if let Some((bw, bh)) = *PANEL_BASE.lock().unwrap() {
@@ -2759,6 +2788,7 @@ fn main() {
             set_drop_hidden,
             panel_grow,
             panel_rest,
+            file_info,
             phone_start,
             phone_stop,
             phone_status,

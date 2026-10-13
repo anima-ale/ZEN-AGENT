@@ -1,0 +1,1 @@
+- Anteprima allegati: click sulla chip apre la lightbox (immagine grande o scheda file con peso), Esc chiude.

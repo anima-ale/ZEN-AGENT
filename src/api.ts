@@ -56,6 +56,7 @@ export const api = {
   setDropHidden: (hidden: boolean) => invoke<void>("set_drop_hidden", { hidden }),
   panelGrow: (extra: number) => invoke<void>("panel_grow", { extra }),
   panelRest: () => invoke<void>("panel_rest"),
+  fileInfo: (path: string) => invoke<FileDetails>("file_info", { path }),
   notifyReady: () => invoke<void>("notify_response_ready"),
   clearReady: () => invoke<void>("clear_response_ready"),
   addTask: (prompt: string, intervalSecs: number, timeDaily?: string | null) =>
@@ -97,6 +98,18 @@ export interface PhoneStatus {
   url: string;
   public_url: string;
   remote: string;
+}
+
+export interface FileDetails {
+  name: string;
+  size: number;
+  is_image: boolean;
+  exists: boolean;
+}
+
+export function formatSize(n: number): string {
+  if (n >= 1048576) return `${(n / 1048576).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(n / 1024))} KB`;
 }
 
 export function onFilesDropped(cb: (paths: string[]) => void): Promise<UnlistenFn> {

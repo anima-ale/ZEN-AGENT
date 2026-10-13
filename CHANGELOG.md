@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.8.2]
+- Anteprima allegati: click sulla chip apre la lightbox (immagine grande o scheda file con peso), Esc chiude.
+
 ## [0.8.1]
 - Anti-pigrizia: regola che vieta di rispondere senza agire + controllo automatico (se sembrava un ordine e non ha usato strumenti, riprova intimando gli strumenti). Niente più "Fatto." a vuoto.
 

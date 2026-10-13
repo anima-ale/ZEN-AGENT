@@ -1,6 +1,6 @@
 {
-    "version":  "0.8.1",
-    "notes":  "- Anti-pigrizia: regola che vieta di rispondere senza agire + controllo automatico (se sembrava un ordine e non ha usato strumenti, riprova intimando gli strumenti). Niente più \"Fatto.\" a vuoto.",
+    "version":  "0.8.2",
+    "notes":  "- Anteprima allegati: click sulla chip apre la lightbox (immagine grande o scheda file con peso), Esc chiude.",
     "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/latest/download/ZEN-AGENT_x64-setup.exe",
-    "sha256":  "d99246856c1b48aa345b51d5a81d1c717d5b59c34383e88c7c28cbe5ee6b2cc0"
+    "sha256":  "f4b117b891c24965bcdc641d26ef4948cba6164ecd27ea1333b6e42fa65c4b43"
 }
