@@ -1,6 +1,6 @@
 {
-    "version":  "0.8.0",
-    "notes":  "- Input elastico: cresce col testo fino a 7 righe, oltre allunga la finestra da sotto; dopo l\u0027invio tutto torna piccolo.\n- Goccia nascondibile dalle impostazioni + sequenza tasti personale per aprire ZEN (universale di scorta: Ctrl+Alt+Z). Senza goccia la risposta apre il pannello da sola.",
+    "version":  "0.8.1",
+    "notes":  "- Anti-pigrizia: regola che vieta di rispondere senza agire + controllo automatico (se sembrava un ordine e non ha usato strumenti, riprova intimando gli strumenti). Niente più \"Fatto.\" a vuoto.",
     "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/latest/download/ZEN-AGENT_x64-setup.exe",
-    "sha256":  "9d04a37d7376ec52a3b1e773dd39fe9657680ce594dc48d00ca08fff75a1fea1"
+    "sha256":  "d99246856c1b48aa345b51d5a81d1c717d5b59c34383e88c7c28cbe5ee6b2cc0"
 }

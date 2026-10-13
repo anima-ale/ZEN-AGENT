@@ -1,0 +1,1 @@
+- Anti-pigrizia: regola che vieta di rispondere senza agire + controllo automatico (se sembrava un ordine e non ha usato strumenti, riprova intimando gli strumenti). Niente più "Fatto." a vuoto.

@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.8.1]
+- Anti-pigrizia: regola che vieta di rispondere senza agire + controllo automatico (se sembrava un ordine e non ha usato strumenti, riprova intimando gli strumenti). Niente più "Fatto." a vuoto.
+
 ## [0.8.0]
 - Input elastico: cresce col testo fino a 7 righe, oltre allunga la finestra da sotto; dopo l'invio tutto torna piccolo.
 - Goccia nascondibile dalle impostazioni + sequenza tasti personale per aprire ZEN (universale di scorta: Ctrl+Alt+Z). Senza goccia la risposta apre il pannello da sola.

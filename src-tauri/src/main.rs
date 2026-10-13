@@ -30,8 +30,21 @@ const DEFAULT_FREE_MODEL: &str = "opencode/muse-spark-1.3-contributor-free";
 const DEFAULT_FREE_SMALL_MODEL: &str = "opencode/nemotron-3.5-lightning-free";
 /// Pensiero sempre al minimo: reasoning effort ridotto (quasi istantaneo).
 const FAST_VARIANT: &str = "minimal";
-/// Stile fisso: niente narrazione né annunci, solo fatti + conferme brevi.
-const STYLE_RULE: &str = "REGOLA FISSA: lavora in silenzio, non annunciare mai nulla prima o durante gli strumenti. Se agisci: risposta finale di una sola riga in italiano col solo esito (es. Fatto.). Se rispondi a una domanda: risposta diretta e breve, in italiano. Mai come ci sei arrivato, mai errori o tentativi incontrati.";
+/// Stile fisso: agire sempre, niente narrazione, solo fatti + conferme brevi.
+const STYLE_RULE: &str = "REGOLA FISSA: esegui SUBITO ogni azione con gli strumenti, vietato rispondere senza aver agito. Lavora in silenzio senza annunciare. Se agisci: risposta finale di una sola riga in italiano col solo esito (es. Fatto.). Se rispondi a una domanda: risposta diretta e breve, in italiano. Se non puoi agire ne rispondere: chiedi in una riga cosa devo fare. Mai come ci sei arrivato, mai errori o tentativi incontrati.";
+
+/// Sembra un ordine di fare (non una domanda)? Se sì e non usa strumenti, riprova.
+fn looks_like_action(prompt: &str) -> bool {
+    let p = prompt.to_lowercase();
+    [
+        "apri", "crea", "scrivi", "modifica", "elimina", "cancella", "installa", "disinstalla",
+        "avvia", "lancia", "esegui", "chiudi", "spegni", "riavvia", "fammi", "metti", "sposta",
+        "copia", "rinomina", "scarica", "sistema", "organizza", "pulisci", "disegna", "cerca ",
+        "trova", "manda", "invia",
+    ]
+    .iter()
+    .any(|v| p.contains(v))
+}
 const SERVE_PORT: u16 = 4096;
 
 // ZENdate (come KOA Browser): manifest su GitHub raw + setup exe nelle Release.
@@ -1596,11 +1609,12 @@ fn tool_detail(input: &serde_json::Value) -> String {
 /// attività completata e pensieri live (eventi al pannello). Il reasoning
 /// vero del provider è cifrato, quindi i "pensieri" sono tracce di attività
 /// (cosa sta facendo), non il testo interno del modello.
+/// Ritorna (testo finale, attività completate).
 fn run_streamed(
     app: &tauri::AppHandle,
     argv: Vec<String>,
     cwd: &str,
-) -> Result<String, String> {
+) -> Result<(String, u32), String> {
     use std::io::BufRead;
     let mut cmd = opencode_command();
     cmd.args(&argv).current_dir(cwd);
@@ -1702,7 +1716,7 @@ fn run_streamed(
     } else {
         early_text + &late_text
     };
-    Ok(final_text)
+    Ok((final_text, acts))
 }
 
 #[tauri::command]
@@ -1809,14 +1823,31 @@ async fn agent_run(
                 return Ok(hit);
             }
         }
-        let mut out = run_streamed(&app_in, build_args(true, false, true, &final_prompt, &files), &cwd)
-            .map(|o| truncate(&o, 12000));
-        for (att, fast) in [(false, false), (true, true), (true, false)] {
-            if out.is_ok() {
-                break;
+        let mut out: Result<String, String> = Err("avvio".into());
+        let mut acts_done: u32 = 0;
+        for (att, fast) in [(false, true), (false, false), (true, true), (true, false)] {
+            match run_streamed(&app_in, build_args(true, att, fast, &final_prompt, &files), &cwd) {
+                Ok((txt, acts)) => {
+                    out = Ok(truncate(&txt, 12000));
+                    acts_done = acts;
+                    break;
+                }
+                Err(e) => out = Err(e),
             }
-            out = run_streamed(&app_in, build_args(true, att, fast, &final_prompt, &files), &cwd)
-                .map(|o| truncate(&o, 12000));
+        }
+        // Anti-pigrizia: sembrava un ordine ma non ha mosso un dito?
+        // Un tentativo in più intimando gli strumenti, poi si tiene il meglio.
+        if out.is_ok() && acts_done == 0 && looks_like_action(&prompt_owned) {
+            let force = format!(
+                "NON hai agito: DEVI usare subito gli strumenti per farlo davvero, vietato rispondere solo a parole. {final_prompt}"
+            );
+            if let Ok((txt, acts)) =
+                run_streamed(&app_in, build_args(true, false, true, &force, &files), &cwd)
+            {
+                if acts > 0 {
+                    out = Ok(truncate(&txt, 12000));
+                }
+            }
         }
         if out.is_err() {
             out = run_with(build_run(false, true, &final_prompt, &files))
