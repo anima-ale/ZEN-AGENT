@@ -1,0 +1,1 @@
+- Via tutto il sistema hotkey: niente più apertura da tastiera (plugin, scorciatoie, sequenza personale, goccia-nascosta). ZEN si apre solo da mouse/touch come prima.

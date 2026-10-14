@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.8.3]
+- Via tutto il sistema hotkey: niente più apertura da tastiera (plugin, scorciatoie, sequenza personale, goccia-nascosta). ZEN si apre solo da mouse/touch come prima.
+
 ## [0.8.2]
 - Anteprima allegati: click sulla chip apre la lightbox (immagine grande o scheda file con peso), Esc chiude.
 

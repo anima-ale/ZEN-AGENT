@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 
 function Icon({ d }: { d: string }) {
@@ -66,9 +66,6 @@ export default function SettingsApp() {
   const [remoteUrl, setRemoteUrl] = useState<string | null>(null);
   const [remoteState, setRemoteState] = useState("off");
   const [qrOk, setQrOk] = useState(true);
-  const [dropHidden, setDropHidden] = useState(false);
-  const [hotkey, setHotkey] = useState("ctrl+shift+z");
-  const [capturing, setCapturing] = useState(false);
 
   const syncPhone = useCallback(async () => {
     try {
@@ -91,12 +88,6 @@ export default function SettingsApp() {
     } catch { /* ignora */ }
     try {
       setPos(await api.getDropPosition());
-    } catch { /* ignora */ }
-    try {
-      setDropHidden(await api.getDropHidden());
-    } catch { /* ignora */ }
-    try {
-      setHotkey(await api.getHotkey());
     } catch { /* ignora */ }
     try {
       const ph = await api.phoneStatus();
@@ -187,42 +178,6 @@ export default function SettingsApp() {
     }
   };
 
-  const toggleDropHidden = async () => {
-    try {
-      await api.setDropHidden(!dropHidden);
-      setDropHidden(!dropHidden);
-      setMsg(!dropHidden ? "barra nascosta: ZEN si apre solo da tastiera." : "barra di nuovo visibile.");
-    } catch (e) {
-      setMsg("barra fallita: " + String(e));
-    }
-  };
-
-  const captureHotkey = (e: ReactKeyboardEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    const k = e.key;
-    if (["Control", "Shift", "Alt", "Meta"].includes(k)) return;
-    const parts: string[] = [];
-    if (e.ctrlKey) parts.push("ctrl");
-    if (e.shiftKey) parts.push("shift");
-    if (e.altKey) parts.push("alt");
-    if (e.metaKey) parts.push("super");
-    const name = k === " " ? "space" : k.toLowerCase();
-    if (parts.length === 0) {
-      setMsg("premi anche Ctrl o Alt insieme al tasto.");
-      return;
-    }
-    parts.push(name);
-    const seq = parts.join("+");
-    api
-      .setHotkey(seq)
-      .then((saved) => {
-        setHotkey(saved);
-        setCapturing(false);
-        setMsg(`sequenza impostata: ${saved}.`);
-      })
-      .catch((err) => setMsg("sequenza non valida: " + String(err)));
-  };
-
   const toggleRemote = async () => {
     try {
       if (remoteState === "pronto" || remoteState === "avvio") {
@@ -284,27 +239,6 @@ export default function SettingsApp() {
               </button>
             ))}
           </div>
-
-          <div className="aux-label">BARRA SUPERIORE (GOCCIA)</div>
-          <label id="set-auto">
-            <input type="checkbox" checked={dropHidden} onChange={toggleDropHidden} />
-            nascondi la barra: ZEN si apre solo da tastiera
-          </label>
-
-          <div className="aux-label">SEQUENZA TASTI PERSONALE</div>
-          <div id="set-row">
-            <button
-              className={`chan ${capturing ? "on" : ""}`}
-              onClick={() => {
-                setCapturing(true);
-                setMsg("premi la sequenza (con Ctrl o Alt)...");
-              }}
-              onKeyDown={capturing ? captureHotkey : undefined}
-            >
-              {capturing ? "premi i tasti..." : hotkey}
-            </button>
-          </div>
-          <div id="phone-note">se la dimentichi, Ctrl+Alt+Z apre sempre ZEN.</div>
 
           <div className="aux-label">TELEFONO</div>
           <div id="set-row">

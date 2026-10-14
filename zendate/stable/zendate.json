@@ -1,6 +1,6 @@
 {
-    "version":  "0.8.2",
-    "notes":  "- Anteprima allegati: click sulla chip apre la lightbox (immagine grande o scheda file con peso), Esc chiude.",
+    "version":  "0.8.3",
+    "notes":  "- Via tutto il sistema hotkey: niente più apertura da tastiera (plugin, scorciatoie, sequenza personale, goccia-nascosta). ZEN si apre solo da mouse/touch come prima.",
     "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/latest/download/ZEN-AGENT_x64-setup.exe",
-    "sha256":  "f4b117b891c24965bcdc641d26ef4948cba6164ecd27ea1333b6e42fa65c4b43"
+    "sha256":  "002f7d545a05f72465e4b37bca92fbf7bd5559f36f532fdd81a4da52f39456e2"
 }
