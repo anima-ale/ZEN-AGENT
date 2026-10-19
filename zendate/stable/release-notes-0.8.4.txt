@@ -1,0 +1,1 @@
+- Motore di default cambiato: LongCat 2.5 Preview Free (era muse-spark-1.3). Più capace, sempre quasi istantaneo con --variant minimal.

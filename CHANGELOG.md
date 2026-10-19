@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.8.4]
+- Motore di default cambiato: LongCat 2.5 Preview Free (era muse-spark-1.3). Più capace, sempre quasi istantaneo con --variant minimal.
+
 ## [0.8.3]
 - Via tutto il sistema hotkey: niente più apertura da tastiera (plugin, scorciatoie, sequenza personale, goccia-nascosta). ZEN si apre solo da mouse/touch come prima.
 

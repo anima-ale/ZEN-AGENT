@@ -1,6 +1,6 @@
 {
-    "version":  "0.8.3",
-    "notes":  "- Via tutto il sistema hotkey: niente più apertura da tastiera (plugin, scorciatoie, sequenza personale, goccia-nascosta). ZEN si apre solo da mouse/touch come prima.",
+    "version":  "0.8.4",
+    "notes":  "- Motore di default cambiato: LongCat 2.5 Preview Free (era muse-spark-1.3). Più capace, sempre quasi istantaneo con --variant minimal.",
     "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/latest/download/ZEN-AGENT_x64-setup.exe",
-    "sha256":  "002f7d545a05f72465e4b37bca92fbf7bd5559f36f532fdd81a4da52f39456e2"
+    "sha256":  "b2ffb33945395015f54493f835ee07b3b9c43599f467b2959d428b7723645df9"
 }

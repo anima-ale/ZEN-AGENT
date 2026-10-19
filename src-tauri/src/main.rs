@@ -18,15 +18,15 @@ use tauri::{Emitter, Manager};
 // Modello gratuito più potente (Zen): lista in ordine di preferenza.
 // Il primo è quello impostato di default se l'utente non ha già un modello dal CLI.
 const FREE_MODEL_PRIORITY: &[&str] = &[
+    "opencode/longcat-2.5-preview-free",
     "opencode/muse-spark-1.3-contributor-free",
     "opencode/big-pickle",
     "opencode/nemotron-3-ultra-free",
     "opencode/exo-free",
     "opencode/space-bunny-free",
-    "opencode/longcat-2.5-preview-free",
     "opencode/step-5-preview-free",
 ];
-const DEFAULT_FREE_MODEL: &str = "opencode/muse-spark-1.3-contributor-free";
+const DEFAULT_FREE_MODEL: &str = "opencode/longcat-2.5-preview-free";
 const DEFAULT_FREE_SMALL_MODEL: &str = "opencode/nemotron-3.5-lightning-free";
 /// Pensiero sempre al minimo: reasoning effort ridotto (quasi istantaneo).
 const FAST_VARIANT: &str = "minimal";

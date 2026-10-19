@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "ZEN-AGENT"
-version = "0.8.3"
+version = "0.8.4"
 dependencies = [
  "hex",
  "reqwest 0.12.28",
