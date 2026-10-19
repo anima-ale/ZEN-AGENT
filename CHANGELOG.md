@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.8.5]
+- Fix modello: il config viene pulito e riscritto forzando LongCat (rimuove muse-spark ovunque, anche su installazioni precedenti). Anti-"Fatto" a vuoto rafforzato: se il primo tentativo non agisce, riprova senza variant e con il primo modello disponibile.
+
 ## [0.8.4]
 - Motore di default cambiato: LongCat 2.5 Preview Free (era muse-spark-1.3). Più capace, sempre quasi istantaneo con --variant minimal.
 

@@ -1,6 +1,6 @@
 {
-    "version":  "0.8.4",
-    "notes":  "- Motore di default cambiato: LongCat 2.5 Preview Free (era muse-spark-1.3). Più capace, sempre quasi istantaneo con --variant minimal.",
+    "version":  "0.8.5",
+    "notes":  "- Fix modello: il config viene pulito e riscritto forzando LongCat (rimuove muse-spark ovunque, anche su installazioni precedenti). Anti-\"Fatto\" a vuoto rafforzato: se il primo tentativo non agisce, riprova senza variant e con il primo modello disponibile.",
     "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/latest/download/ZEN-AGENT_x64-setup.exe",
-    "sha256":  "b2ffb33945395015f54493f835ee07b3b9c43599f467b2959d428b7723645df9"
+    "sha256":  "10cd85e642fe5c1158a51fe27eaa68feebda00e13084d0f47d30100a6b3d0202"
 }

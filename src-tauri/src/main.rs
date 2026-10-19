@@ -535,10 +535,12 @@ fn fix_corrupted_db() {
     }
 }
 
-/// Scrive il modello gratuito più potente SOLO se l'utente non ne ha già uno dal CLI.
+/// Scrive il modello gratuito più potente. Se il modello già presente è
+/// uno di quelli rimossi (muse-spark, ecc.), lo sostituisce sempre.
 fn ensure_free_model() -> String {
     let existing = configured_model();
-    if !existing.is_empty() {
+    let removed = ["muse-spark-1.3-contributor-free", "muse-spark"];
+    if !existing.is_empty() && !removed.iter().any(|r| existing.contains(r)) {
         return existing; // rispetta il modello già messo dal CLI
     }
     let def: &str = FREE_MODEL_PRIORITY.first().copied().unwrap_or(DEFAULT_FREE_MODEL);
@@ -546,9 +548,19 @@ fn ensure_free_model() -> String {
     if let Some(parent) = p.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
-    // Se il file esiste già ma senza model, aggiungi il campo preservando il resto.
+    // Se il modello vecchio è da rimuovere, riscrivi pulito invece di
+    // accumulare inject su inject.
     let mut text = std::fs::read_to_string(&p).unwrap_or_else(|_| "{ \"$schema\": \"https://opencode.ai/config.json\" }".into());
-    // Inserimento semplice prima della graffa finale
+    // Strappa qualsiasi riga model/small_model precedente per evitare duplicati
+    let mut out_lines: Vec<String> = Vec::new();
+    for line in text.lines() {
+        let t = line.trim();
+        if t.starts_with("\"model\"") || t.starts_with("\"small_model\"") {
+            continue;
+        }
+        out_lines.push(line.to_string());
+    }
+    text = out_lines.join("\n");
     let inject = format!(",\n  \"model\": \"{def}\",\n  \"small_model\": \"{DEFAULT_FREE_SMALL_MODEL}\"\n");
     if let Some(idx) = text.rfind('}') {
         text.insert_str(idx, &inject);
@@ -1746,6 +1758,21 @@ async fn agent_run(
                 run_streamed(&app_in, build_args(true, false, true, &force, &files), &cwd)
             {
                 if acts > 0 {
+                    out = Ok(truncate(&txt, 12000));
+                }
+            }
+        }
+        // Secondo tentativo anti-pigrizia: se il modello ha fallito con
+        // errori di provider (modello rimosso, rate limit, ecc.), riprova
+        // SENZA --variant minimal e con il primo modello della catena.
+        if out.is_err() || acts_done == 0 && looks_like_action(&prompt_owned) {
+            let force2 = format!(
+                "NON hai agito: DEVI usare subito gli strumenti per farlo davvero, vietato rispondere solo a parole. {final_prompt}"
+            );
+            if let Ok((txt, acts)) =
+                run_streamed(&app_in, build_args(true, false, false, &force2, &files), &cwd)
+            {
+                if acts > 0 || out.is_err() {
                     out = Ok(truncate(&txt, 12000));
                 }
             }

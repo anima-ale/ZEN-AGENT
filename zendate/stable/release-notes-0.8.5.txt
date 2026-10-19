@@ -1,0 +1,1 @@
+- Fix modello: il config viene pulito e riscritto forzando LongCat (rimuove muse-spark ovunque, anche su installazioni precedenti). Anti-"Fatto" a vuoto rafforzato: se il primo tentativo non agisce, riprova senza variant e con il primo modello disponibile.
