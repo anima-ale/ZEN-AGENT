@@ -1,5 +1,10 @@
 # Changelog ZEN-AGENT
 
+## [0.8.8]
+- Mai più "(nessun output)": se ha lavorato e il modello non scrive nulla, risponde "Fatto.".
+- Corsia chatbot veloce: domande semplici e brevi usano il modello flash senza thinking e senza strumenti, una sola chiamata.
+- Config autoriparato: virgole rotte o modelli rimossi vengono corretti all'avvio (fix del file jsonc che bloccava tutto).
+
 ## [0.8.7]
 - Capisci se ZEN lavora o è bloccato: nella scatola pensiero vedi i secondi trascorsi e l'ultimo progresso. Dopo 45s senza eventi diventa rossa con avviso e pulsante "interrompi" che chiude davvero il processo (taskkill).
 

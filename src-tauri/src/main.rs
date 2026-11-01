@@ -615,12 +615,37 @@ fn model_chain() -> Vec<String> {
     chain
 }
 
+/// Ripulisce virgole orfane lasciate dalle modifiche testuali.
+fn tidy_commas(s: &str) -> String {
+    let mut t = s.to_string();
+    loop {
+        let before = t.clone();
+        t = t.replace(",\r\n,", ",");
+        t = t.replace(",\n,", ",");
+        t = t.replace(", ,", ",");
+        t = t.replace(",\r\n}", "\r\n}");
+        t = t.replace(",\n}", "\n}");
+        t = t.replace(",}", "}");
+        t = t.replace("{\r\n,", "{\r\n");
+        t = t.replace("{\n,", "{\n");
+        if t == before {
+            break;
+        }
+    }
+    t
+}
+
 /// Scrive il modello gratuito più potente. Se il modello già presente non
 /// esiste più sul provider, lo sostituisce con uno disponibile.
 fn ensure_free_model() -> String {
     let avail = available_models();
     let existing = configured_model();
+    let p = opencode_config_path();
+    let raw = std::fs::read_to_string(&p).unwrap_or_default();
+    // Anche un config con virgole rotte va riscritto, non solo un modello mancante.
+    let healthy = raw.is_empty() || tidy_commas(&raw) == raw;
     let exists = !existing.is_empty()
+        && healthy
         && (avail.is_empty() || avail.iter().any(|a| *a == existing));
     if exists {
         return existing; // rispetta il modello già messo dal CLI
@@ -648,14 +673,20 @@ fn ensure_free_model() -> String {
         out_lines.push(line.to_string());
     }
     let mut text = out_lines.join("\n");
-    let inject = format!(",\n  \"model\": \"{def}\",\n  \"small_model\": \"{small}\"\n");
+    text = tidy_commas(&text);
+    // Comma solo se il contenuto prima della graffa non è vuoto.
+    let inject = format!("\n  \"model\": \"{def}\",\n  \"small_model\": \"{small}\"\n");
     if let Some(idx) = text.rfind('}') {
-        text.insert_str(idx, &inject);
+        let head = text[..idx].trim_end();
+        let needs_comma = !head.trim_end().ends_with('{');
+        let comma = if needs_comma { "," } else { "" };
+        text.insert_str(idx, &format!("{comma}{inject}"));
     } else {
         text = format!(
             "{{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"model\": \"{def}\",\n  \"small_model\": \"{small}\"\n}}"
         );
     }
+    text = tidy_commas(&text);
     let _ = std::fs::write(&p, text);
     def.to_string()
 }
@@ -1722,6 +1753,16 @@ fn run_streamed(
     } else {
         early_text + &late_text
     };
+    // Mai un vuoto in faccia all'utente: se ha lavorato, il lavoro è fatto.
+    let final_text = if final_text.trim().is_empty() {
+        if acts > 0 {
+            String::from("Fatto.")
+        } else {
+            final_text
+        }
+    } else {
+        final_text
+    };
     Ok((final_text, acts))
 }
 
@@ -1840,12 +1881,46 @@ async fn agent_run(
         }
         let mut out: Result<String, String> = Err("avvio".into());
         let mut acts_done: u32 = 0;
+        // Domanda semplice (nessuna azione da compiere, breve): corsia
+        // rapidissima col modello flash, niente thinking, una sola chiamata.
+        let simple = attached.is_empty()
+            && prompt_owned.chars().count() <= 300
+            && !looks_like_action(&prompt_owned);
+        if simple {
+            let avail = available_models();
+            let quick_model = if avail.iter().any(|m| m == DEFAULT_FREE_SMALL_MODEL) {
+                Some(DEFAULT_FREE_SMALL_MODEL.to_string())
+            } else {
+                avail.first().cloned()
+            };
+            if let Some(qm) = quick_model {
+                let quick = format!(
+                    "Rispondi in italiano, diretto e breve, senza usare strumenti. {prompt_text}"
+                );
+                if let Ok((txt, _)) = run_streamed(
+                    &app_in,
+                    build_args(true, false, true, Some(&qm), &quick, &files),
+                    &cwd,
+                ) {
+                    if !txt.trim().is_empty() {
+                        out = Ok(truncate(&txt, 12000));
+                        acts_done = 0;
+                    }
+                }
+            }
+        }
         // Catena modelli: se uno dà errore (provider giù, modello rimosso,
         // rate limit) si passa al successivo finché non arriva una risposta.
-        let mut chain: Vec<String> = model_chain();
-        if chain.is_empty() {
-            chain = FREE_MODEL_PRIORITY.iter().map(|s| s.to_string()).collect();
-        }
+        let mut chain: Vec<String> = if out.is_ok() {
+            vec![]
+        } else {
+            let c = model_chain();
+            if c.is_empty() {
+                FREE_MODEL_PRIORITY.iter().map(|s| s.to_string()).collect()
+            } else {
+                c
+            }
+        };
         'models: for m in &chain {
             for (att, fast) in [(false, true), (true, true)] {
                 match run_streamed(
@@ -1903,7 +1978,12 @@ async fn agent_run(
         for p in cleanup {
             let _ = std::fs::remove_file(&p);
         }
-        out
+        // Garanzia finale: mai stringa vuota all'utente.
+        match out {
+            Ok(s) if !s.trim().is_empty() => Ok(s),
+            Ok(_) => Ok(String::from("Fatto.")),
+            Err(e) => Err(e),
+        }
     })
     .await
     .map_err(|e| format!("task fallito: {e}"))?

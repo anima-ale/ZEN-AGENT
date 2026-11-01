@@ -1,0 +1,3 @@
+- Mai più "(nessun output)": se ha lavorato e il modello non scrive nulla, risponde "Fatto.".
+- Corsia chatbot veloce: domande semplici e brevi usano il modello flash senza thinking e senza strumenti, una sola chiamata.
+- Config autoriparato: virgole rotte o modelli rimossi vengono corretti all'avvio (fix del file jsonc che bloccava tutto).
