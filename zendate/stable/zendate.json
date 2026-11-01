@@ -1,6 +1,6 @@
 {
-    "version":  "0.8.5",
-    "notes":  "- Fix modello: il config viene pulito e riscritto forzando LongCat (rimuove muse-spark ovunque, anche su installazioni precedenti). Anti-\"Fatto\" a vuoto rafforzato: se il primo tentativo non agisce, riprova senza variant e con il primo modello disponibile.",
+    "version":  "0.8.6",
+    "notes":  "- Failover automatico dei modelli: la lista viene letta dal motore (i gratuiti ruotano), si prova in ordine finché uno risponde. Se un modello viene rimosso dal provider, ZEN passa da solo al successivo.\n- Pensiero animato in chat: scatola \"ragiono\" con orb e barre animate, che mostra in tempo reale pensieri, OK delle attività, letture/scritture file e sparisce alla risposta finale.",
     "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/latest/download/ZEN-AGENT_x64-setup.exe",
-    "sha256":  "10cd85e642fe5c1158a51fe27eaa68feebda00e13084d0f47d30100a6b3d0202"
+    "sha256":  "c957b46208b02f8a721357b0965e1e27fc0b9b7e4fb7f013aebd864f68ba4d07"
 }

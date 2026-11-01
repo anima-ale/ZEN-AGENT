@@ -1,0 +1,2 @@
+- Failover automatico dei modelli: la lista viene letta dal motore (i gratuiti ruotano), si prova in ordine finché uno risponde. Se un modello viene rimosso dal provider, ZEN passa da solo al successivo.
+- Pensiero animato in chat: scatola "ragiono" con orb e barre animate, che mostra in tempo reale pensieri, OK delle attività, letture/scritture file e sparisce alla risposta finale.

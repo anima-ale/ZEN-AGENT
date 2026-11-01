@@ -1,5 +1,9 @@
 # Changelog ZEN-AGENT
 
+## [0.8.6]
+- Failover automatico dei modelli: la lista viene letta dal motore (i gratuiti ruotano), si prova in ordine finché uno risponde. Se un modello viene rimosso dal provider, ZEN passa da solo al successivo.
+- Pensiero animato in chat: scatola "ragiono" con orb e barre animate, che mostra in tempo reale pensieri, OK delle attività, letture/scritture file e sparisce alla risposta finale.
+
 ## [0.8.5]
 - Fix modello: il config viene pulito e riscritto forzando LongCat (rimuove muse-spark ovunque, anche su installazioni precedenti). Anti-"Fatto" a vuoto rafforzato: se il primo tentativo non agisce, riprova senza variant e con il primo modello disponibile.
 

@@ -18,15 +18,16 @@ use tauri::{Emitter, Manager};
 // Modello gratuito più potente (Zen): lista in ordine di preferenza.
 // Il primo è quello impostato di default se l'utente non ha già un modello dal CLI.
 const FREE_MODEL_PRIORITY: &[&str] = &[
-    "opencode/longcat-2.5-preview-free",
-    "opencode/muse-spark-1.3-contributor-free",
+    "opencode/deepseek-v4.1-flash-free",
+    "opencode/glm-5.3-flash-free",
+    "opencode/flint-40b-free",
+    "opencode/mimo-v2.6-flash-free",
+    "opencode/beam-free",
     "opencode/big-pickle",
-    "opencode/nemotron-3-ultra-free",
-    "opencode/exo-free",
-    "opencode/space-bunny-free",
-    "opencode/step-5-preview-free",
+    "opencode/nemotron-3.5-super-vl-free",
+    "opencode/nemotron-3.5-lightning-free",
 ];
-const DEFAULT_FREE_MODEL: &str = "opencode/longcat-2.5-preview-free";
+const DEFAULT_FREE_MODEL: &str = "opencode/deepseek-v4.1-flash-free";
 const DEFAULT_FREE_SMALL_MODEL: &str = "opencode/nemotron-3.5-lightning-free";
 /// Pensiero sempre al minimo: reasoning effort ridotto (quasi istantaneo).
 const FAST_VARIANT: &str = "minimal";
@@ -535,23 +536,86 @@ fn fix_corrupted_db() {
     }
 }
 
-/// Scrive il modello gratuito più potente. Se il modello già presente è
-/// uno di quelli rimossi (muse-spark, ecc.), lo sostituisce sempre.
+/// Modelli realmente disponibili sul motore (cache 10 min).
+static MODELS_CACHE: Mutex<(Vec<String>, u64)> = Mutex::new((Vec::new(), 0));
+
+fn available_models() -> Vec<String> {
+    let now = now_secs();
+    {
+        let c = MODELS_CACHE.lock().unwrap();
+        if now.saturating_sub(c.1) < 600 && !c.0.is_empty() {
+            return c.0.clone();
+        }
+    }
+    let out = run_opencode_args(&["models"], ".").unwrap_or_default();
+    let mut v: Vec<String> = vec![];
+    for line in out.lines() {
+        let t = line.trim();
+        if let Some(rest) = t.strip_prefix("opencode/") {
+            if !rest.is_empty() && rest.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '.' || c == '_') {
+                v.push(t.to_string());
+            }
+        }
+    }
+    v.dedup();
+    if !v.is_empty() {
+        let mut c = MODELS_CACHE.lock().unwrap();
+        *c = (v.clone(), now);
+    }
+    v
+}
+
+/// Catena di modelli: preferenze note che esistono ancora, poi il resto
+/// dei gratuiti disponibili. Così quando il provider ne toglie uno,
+/// passiamo da soli al successivo.
+fn model_chain() -> Vec<String> {
+    let avail = available_models();
+    if avail.is_empty() {
+        return FREE_MODEL_PRIORITY.iter().map(|s| s.to_string()).collect();
+    }
+    let mut chain: Vec<String> = vec![];
+    for pref in FREE_MODEL_PRIORITY {
+        if avail.iter().any(|a| a == pref) && !chain.iter().any(|c| c == pref) {
+            chain.push(pref.to_string());
+        }
+    }
+    for a in &avail {
+        if a.ends_with("-free") && !chain.contains(a) {
+            chain.push(a.clone());
+        }
+    }
+    for a in &avail {
+        if !chain.contains(a) {
+            chain.push(a.clone());
+        }
+    }
+    chain
+}
+
+/// Scrive il modello gratuito più potente. Se il modello già presente non
+/// esiste più sul provider, lo sostituisce con uno disponibile.
 fn ensure_free_model() -> String {
+    let avail = available_models();
     let existing = configured_model();
-    let removed = ["muse-spark-1.3-contributor-free", "muse-spark"];
-    if !existing.is_empty() && !removed.iter().any(|r| existing.contains(r)) {
+    let exists = !existing.is_empty()
+        && (avail.is_empty() || avail.iter().any(|a| *a == existing));
+    if exists {
         return existing; // rispetta il modello già messo dal CLI
     }
-    let def: &str = FREE_MODEL_PRIORITY.first().copied().unwrap_or(DEFAULT_FREE_MODEL);
+    let chain = model_chain();
+    let def: &str = chain.first().map(|s| s.as_str()).unwrap_or(DEFAULT_FREE_MODEL);
+    let small = if avail.iter().any(|a| a == DEFAULT_FREE_SMALL_MODEL) {
+        DEFAULT_FREE_SMALL_MODEL
+    } else {
+        def
+    };
     let p = opencode_config_path();
     if let Some(parent) = p.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
-    // Se il modello vecchio è da rimuovere, riscrivi pulito invece di
-    // accumulare inject su inject.
-    let mut text = std::fs::read_to_string(&p).unwrap_or_else(|_| "{ \"$schema\": \"https://opencode.ai/config.json\" }".into());
-    // Strappa qualsiasi riga model/small_model precedente per evitare duplicati
+    // Riscrittura pulita: via ogni riga model/small_model precedente
+    let text = std::fs::read_to_string(&p)
+        .unwrap_or_else(|_| "{ \"$schema\": \"https://opencode.ai/config.json\" }".into());
     let mut out_lines: Vec<String> = Vec::new();
     for line in text.lines() {
         let t = line.trim();
@@ -560,13 +624,13 @@ fn ensure_free_model() -> String {
         }
         out_lines.push(line.to_string());
     }
-    text = out_lines.join("\n");
-    let inject = format!(",\n  \"model\": \"{def}\",\n  \"small_model\": \"{DEFAULT_FREE_SMALL_MODEL}\"\n");
+    let mut text = out_lines.join("\n");
+    let inject = format!(",\n  \"model\": \"{def}\",\n  \"small_model\": \"{small}\"\n");
     if let Some(idx) = text.rfind('}') {
         text.insert_str(idx, &inject);
     } else {
         text = format!(
-            "{{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"model\": \"{def}\",\n  \"small_model\": \"{DEFAULT_FREE_SMALL_MODEL}\"\n}}"
+            "{{\n  \"$schema\": \"https://opencode.ai/config.json\",\n  \"model\": \"{def}\",\n  \"small_model\": \"{small}\"\n}}"
         );
     }
     let _ = std::fs::write(&p, text);
@@ -1653,41 +1717,50 @@ async fn agent_run(
             run_opencode_args(&refs, &cwd)
         };
         // Argv streaming JSON (pensieri + OK live) oppure default (fallback).
-        let build_args =
-            |json: bool, with_attach: bool, fast: bool, text: &str, files: &[String]| -> Vec<String> {
-                let mut v: Vec<String> = vec!["run".into()];
-                if json {
-                    v.push("--format".into());
-                    v.push("json".into());
-                    v.push("--thinking".into());
-                } else {
-                    v.push("--format".into());
-                    v.push("default".into());
-                }
-                if with_attach {
-                    v.push("--attach".into());
-                    v.push(attach.clone());
-                }
-                if fast {
-                    // Pensiero SEMPRE al minimo: reasoning effort ridotto,
-                    // risposta quasi istantanea.
-                    v.push("--variant".into());
-                    v.push(FAST_VARIANT.into());
-                }
-                v.push("--dir".into());
-                v.push(cwd.clone());
-                v.push("--auto".into());
-                // Il prompt PRIMA dei --file: il parser del motore tratta
-                // come file tutto ciò che segue un --file mal posizionato.
-                v.push(text.to_string());
-                for f in files {
-                    v.push("--file".into());
-                    v.push(f.clone());
-                }
-                v
-            };
+        let build_args = |json: bool,
+                          with_attach: bool,
+                          fast: bool,
+                          model: Option<&str>,
+                          text: &str,
+                          files: &[String]|
+         -> Vec<String> {
+            let mut v: Vec<String> = vec!["run".into()];
+            if json {
+                v.push("--format".into());
+                v.push("json".into());
+                v.push("--thinking".into());
+            } else {
+                v.push("--format".into());
+                v.push("default".into());
+            }
+            if let Some(m) = model {
+                v.push("--model".into());
+                v.push(m.to_string());
+            }
+            if with_attach {
+                v.push("--attach".into());
+                v.push(attach.clone());
+            }
+            if fast {
+                // Pensiero SEMPRE al minimo: reasoning effort ridotto,
+                // risposta quasi istantanea.
+                v.push("--variant".into());
+                v.push(FAST_VARIANT.into());
+            }
+            v.push("--dir".into());
+            v.push(cwd.clone());
+            v.push("--auto".into());
+            // Il prompt PRIMA dei --file: il parser del motore tratta
+            // come file tutto ciò che segue un --file mal posizionato.
+            v.push(text.to_string());
+            for f in files {
+                v.push("--file".into());
+                v.push(f.clone());
+            }
+            v
+        };
         let build_run = |with_attach: bool, fast: bool, text: &str, files: &[String]| -> Vec<String> {
-            build_args(false, with_attach, fast, text, files)
+            build_args(false, with_attach, fast, None, text, files)
         };
         let mut temp_path: Option<std::path::PathBuf> = None;
         // Prompt enormi (>6000 caratteri): via file allegato. La riga di
@@ -1738,15 +1811,33 @@ async fn agent_run(
         }
         let mut out: Result<String, String> = Err("avvio".into());
         let mut acts_done: u32 = 0;
-        for (att, fast) in [(false, true), (false, false), (true, true), (true, false)] {
-            match run_streamed(&app_in, build_args(true, att, fast, &final_prompt, &files), &cwd) {
-                Ok((txt, acts)) => {
-                    out = Ok(truncate(&txt, 12000));
-                    acts_done = acts;
-                    break;
+        // Catena modelli: se uno dà errore (provider giù, modello rimosso,
+        // rate limit) si passa al successivo finché non arriva una risposta.
+        let mut chain: Vec<String> = model_chain();
+        if chain.is_empty() {
+            chain = FREE_MODEL_PRIORITY.iter().map(|s| s.to_string()).collect();
+        }
+        'models: for m in &chain {
+            for (att, fast) in [(false, true), (true, true)] {
+                match run_streamed(
+                    &app_in,
+                    build_args(true, att, fast, Some(m), &final_prompt, &files),
+                    &cwd,
+                ) {
+                    Ok((txt, acts)) => {
+                        out = Ok(truncate(&txt, 12000));
+                        acts_done = acts;
+                        break 'models;
+                    }
+                    Err(_) => {
+                        if !serve_alive() && att {
+                            continue; // attach inutile: prova diretto
+                        }
+                    }
                 }
-                Err(e) => out = Err(e),
             }
+            // Questo modello non ha risposto: avvisa e passa al prossimo.
+            let _ = app_in.emit("zen-thinking", format!("modello {} non disponibile, provo il prossimo…", m.replace("opencode/", "")));
         }
         // Anti-pigrizia: sembrava un ordine ma non ha mosso un dito?
         // Un tentativo in più intimando gli strumenti, poi si tiene il meglio.
@@ -1754,25 +1845,12 @@ async fn agent_run(
             let force = format!(
                 "NON hai agito: DEVI usare subito gli strumenti per farlo davvero, vietato rispondere solo a parole. {final_prompt}"
             );
-            if let Ok((txt, acts)) =
-                run_streamed(&app_in, build_args(true, false, true, &force, &files), &cwd)
-            {
+            if let Ok((txt, acts)) = run_streamed(
+                &app_in,
+                build_args(true, false, true, None, &force, &files),
+                &cwd,
+            ) {
                 if acts > 0 {
-                    out = Ok(truncate(&txt, 12000));
-                }
-            }
-        }
-        // Secondo tentativo anti-pigrizia: se il modello ha fallito con
-        // errori di provider (modello rimosso, rate limit, ecc.), riprova
-        // SENZA --variant minimal e con il primo modello della catena.
-        if out.is_err() || acts_done == 0 && looks_like_action(&prompt_owned) {
-            let force2 = format!(
-                "NON hai agito: DEVI usare subito gli strumenti per farlo davvero, vietato rispondere solo a parole. {final_prompt}"
-            );
-            if let Ok((txt, acts)) =
-                run_streamed(&app_in, build_args(true, false, false, &force2, &files), &cwd)
-            {
-                if acts > 0 || out.is_err() {
                     out = Ok(truncate(&txt, 12000));
                 }
             }

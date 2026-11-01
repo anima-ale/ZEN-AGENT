@@ -646,7 +646,7 @@ export default function PanelApp() {
               thinking ? (
                 <span id="think-thoughts">{thinking}</span>
               ) : (
-                <>pensa<span className="gold-dots"><span>.</span><span>.</span><span>.</span></span></>
+                <span className="think-anim">elaboro…</span>
               )
             ) : (
               statusText
@@ -694,6 +694,15 @@ export default function PanelApp() {
           {messages.map((m) =>
             m.who === "agent" ? (
               <div key={m.id} className="msg agent md-wrap" title={m.t ? new Date(m.t).toLocaleString() : undefined}>
+                {m.id === liveId.current && busy && (
+                  <div className="think-box">
+                    <span className="think-box-orb" />
+                    <span className="think-box-title">ragiono</span>
+                    <span className="think-bar-anim">
+                      <span /><span /><span /><span /><span />
+                    </span>
+                  </div>
+                )}
                 <div
                   className="msg agent md"
                   dangerouslySetInnerHTML={{ __html: m.text ? renderMarkdown(m.text) : "<div class=\"md-p\">…</div>" }}
