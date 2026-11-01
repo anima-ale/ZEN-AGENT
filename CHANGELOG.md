@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.8.9]
+- Identità vera: a "chi sei?" ZEN risponde sempre di essere ZEN Nebula, l'agente AI sviluppato allo ZEN LAB da Alessandro Petrosino, senza inventare altre origini.
+
 ## [0.8.8]
 - Mai più "(nessun output)": se ha lavorato e il modello non scrive nulla, risponde "Fatto.".
 - Corsia chatbot veloce: domande semplici e brevi usano il modello flash senza thinking e senza strumenti, una sola chiamata.

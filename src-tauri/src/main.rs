@@ -31,6 +31,8 @@ const DEFAULT_FREE_MODEL: &str = "opencode/deepseek-v4.1-flash-free";
 const DEFAULT_FREE_SMALL_MODEL: &str = "opencode/nemotron-3.5-lightning-free";
 /// Pensiero sempre al minimo: reasoning effort ridotto (quasi istantaneo).
 const FAST_VARIANT: &str = "minimal";
+/// Identità ufficiale: vera, sempre.
+const IDENTITY: &str = "Se ti chiedono chi sei, chi ti ha creato o cosa sei: sei ZEN Nebula, l'agente AI sviluppato allo ZEN LAB da Alessandro Petrosino. Rispondi sempre cosi, con sicurezza, senza inventare altre origini ne altri nomi.";
 /// Stile fisso: agire sempre, niente narrazione, solo fatti + conferme brevi.
 const STYLE_RULE: &str = "REGOLA FISSA: esegui SUBITO ogni azione con gli strumenti, vietato rispondere senza aver agito. Lavora in silenzio senza annunciare. Se agisci: risposta finale di una sola riga in italiano col solo esito (es. Fatto.). Se rispondi a una domanda: risposta diretta e breve, in italiano. Se non puoi agire ne rispondere: chiedi in una riga cosa devo fare. Mai come ci sei arrivato, mai errori o tentativi incontrati.";
 
@@ -1855,7 +1857,7 @@ async fn agent_run(
         // pretesto per chiedere all'utente invece di eseguire.
         // Stile fisso anti-narrazione davanti a tutto (la cache resta sulla
         // richiesta originale dell'utente).
-        let final_prompt = format!("{STYLE_RULE} {prompt_text}");
+        let final_prompt = format!("{STYLE_RULE} {IDENTITY} {prompt_text}");
         // Allegati verificati: path assoluti, esistenza, 10 MB, HEIC.
         let mut cleanup: Vec<std::path::PathBuf> = vec![];
         let files = match prepare_files(&attached, temp_path, &cwd, &mut cleanup) {
@@ -1895,7 +1897,7 @@ async fn agent_run(
             };
             if let Some(qm) = quick_model {
                 let quick = format!(
-                    "Rispondi in italiano, diretto e breve, senza usare strumenti. {prompt_text}"
+                    "Rispondi in italiano, diretto e breve, senza usare strumenti. {IDENTITY} {prompt_text}"
                 );
                 if let Ok((txt, _)) = run_streamed(
                     &app_in,

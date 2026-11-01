@@ -1,6 +1,6 @@
 {
-    "version":  "0.8.8",
-    "notes":  "- Mai più \"(nessun output)\": se ha lavorato e il modello non scrive nulla, risponde \"Fatto.\".\n- Corsia chatbot veloce: domande semplici e brevi usano il modello flash senza thinking e senza strumenti, una sola chiamata.\n- Config autoriparato: virgole rotte o modelli rimossi vengono corretti all\u0027avvio (fix del file jsonc che bloccava tutto).",
+    "version":  "0.8.9",
+    "notes":  "- Identità vera: a \"chi sei?\" ZEN risponde sempre di essere ZEN Nebula, l\u0027agente AI sviluppato allo ZEN LAB da Alessandro Petrosino, senza inventare altre origini.",
     "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/latest/download/ZEN-AGENT_x64-setup.exe",
-    "sha256":  "18a880084f0aeb685f54afd723cb90c6577d06c125268baab2055d4c355e3c97"
+    "sha256":  "cc5b144acf0799e6691d5cda0e5eacb02f42510411cc32cc9ca4a2eda530d61e"
 }
