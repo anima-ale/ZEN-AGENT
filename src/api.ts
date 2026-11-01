@@ -52,6 +52,7 @@ export const api = {
   setDropPosition: (position: string) => invoke<void>("set_drop_position", { position }),
   panelGrow: (extra: number) => invoke<void>("panel_grow", { extra }),
   panelRest: () => invoke<void>("panel_rest"),
+  cancel: () => invoke<void>("agent_cancel"),
   fileInfo: (path: string) => invoke<FileDetails>("file_info", { path }),
   notifyReady: () => invoke<void>("notify_response_ready"),
   clearReady: () => invoke<void>("clear_response_ready"),

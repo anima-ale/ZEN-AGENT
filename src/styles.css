@@ -776,6 +776,40 @@ body[data-graphics="neo"] *:not(.unified-input-wrapper):not(.unified-input-wrapp
   animation: thinkSpin 0.85s linear infinite;
   flex-shrink: 0;
 }
+.think-box-time {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--gold);
+  letter-spacing: 0.04em;
+}
+.think-box.stalled {
+  border-color: var(--err);
+}
+.think-box.stalled .think-box-orb {
+  border-top-color: var(--err);
+}
+.think-cancel {
+  background: transparent;
+  border: 1px solid var(--err);
+  color: var(--err);
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  cursor: pointer;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+.think-cancel:hover { background: rgba(255, 93, 93, 0.12); }
+.think-stall {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--err);
+  margin: -4px 0 8px;
+  letter-spacing: 0.02em;
+}
 .think-box-title {
   font-family: var(--mono);
   font-size: 10px;

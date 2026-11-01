@@ -1,0 +1,1 @@
+- Capisci se ZEN lavora o è bloccato: nella scatola pensiero vedi i secondi trascorsi e l'ultimo progresso. Dopo 45s senza eventi diventa rossa con avviso e pulsante "interrompi" che chiude davvero il processo (taskkill).

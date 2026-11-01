@@ -1,6 +1,6 @@
 {
-    "version":  "0.8.6",
-    "notes":  "- Failover automatico dei modelli: la lista viene letta dal motore (i gratuiti ruotano), si prova in ordine finché uno risponde. Se un modello viene rimosso dal provider, ZEN passa da solo al successivo.\n- Pensiero animato in chat: scatola \"ragiono\" con orb e barre animate, che mostra in tempo reale pensieri, OK delle attività, letture/scritture file e sparisce alla risposta finale.",
+    "version":  "0.8.7",
+    "notes":  "- Capisci se ZEN lavora o è bloccato: nella scatola pensiero vedi i secondi trascorsi e l\u0027ultimo progresso. Dopo 45s senza eventi diventa rossa con avviso e pulsante \"interrompi\" che chiude davvero il processo (taskkill).",
     "url":  "https://github.com/anima-ale/ZEN-AGENT/releases/latest/download/ZEN-AGENT_x64-setup.exe",
-    "sha256":  "c957b46208b02f8a721357b0965e1e27fc0b9b7e4fb7f013aebd864f68ba4d07"
+    "sha256":  "c7fcceb05e1e5ad47bffe00a053400567eeab6444817be633b03e646c65cb313"
 }

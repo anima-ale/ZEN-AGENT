@@ -1,5 +1,8 @@
 # Changelog ZEN-AGENT
 
+## [0.8.7]
+- Capisci se ZEN lavora o è bloccato: nella scatola pensiero vedi i secondi trascorsi e l'ultimo progresso. Dopo 45s senza eventi diventa rossa con avviso e pulsante "interrompi" che chiude davvero il processo (taskkill).
+
 ## [0.8.6]
 - Failover automatico dei modelli: la lista viene letta dal motore (i gratuiti ruotano), si prova in ordine finché uno risponde. Se un modello viene rimosso dal provider, ZEN passa da solo al successivo.
 - Pensiero animato in chat: scatola "ragiono" con orb e barre animate, che mostra in tempo reale pensieri, OK delle attività, letture/scritture file e sparisce alla risposta finale.

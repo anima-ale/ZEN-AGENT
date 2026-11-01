@@ -210,6 +210,9 @@ export default function PanelApp() {
   const [needsRepair, setNeedsRepair] = useState(false);
   const [repairing, setRepairing] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [stalled, setStalled] = useState(0);
+  const lastEventRef = useRef<number>(Date.now());
   const [thinking, setThinking] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   // Input elastico: cresce col testo, oltre 7 righe allunga la finestra
@@ -265,10 +268,18 @@ export default function PanelApp() {
   useEffect(() => {
     if (!busy) {
       setBusySecs(0);
+      setElapsed(0);
+      setStalled(0);
       return;
     }
     setBusySecs(0);
-    const t = window.setInterval(() => setBusySecs((s) => s + 1), 1000);
+    setElapsed(0);
+    lastEventRef.current = Date.now();
+    const t = window.setInterval(() => {
+      setBusySecs((s) => s + 1);
+      setElapsed((s) => s + 1);
+      setStalled(Math.floor((Date.now() - lastEventRef.current) / 1000));
+    }, 1000);
     return () => window.clearInterval(t);
   }, [busy]);
 
@@ -382,6 +393,7 @@ export default function PanelApp() {
       if (!alive) return;
       const appendLive = (line: string) => {
         if (!alive || liveId.current == null) return;
+        lastEventRef.current = Date.now();
         const id = liveId.current;
         setMessages((m) =>
           m.map((msg) => (msg.id === id ? { ...msg, text: msg.text ? `${msg.text}\n${line}` : line } : msg)),
@@ -393,7 +405,9 @@ export default function PanelApp() {
       if (!alive) return;
       unlistens.push(
         await listen<string>("zen-thinking", (e) => {
-          if (alive) setThinking(e.payload);
+          if (!alive) return;
+          lastEventRef.current = Date.now();
+          setThinking(e.payload);
         }),
       );
       if (!alive) return;
@@ -695,12 +709,27 @@ export default function PanelApp() {
             m.who === "agent" ? (
               <div key={m.id} className="msg agent md-wrap" title={m.t ? new Date(m.t).toLocaleString() : undefined}>
                 {m.id === liveId.current && busy && (
-                  <div className="think-box">
+                  <div className={`think-box ${stalled >= 45 ? "stalled" : ""}`}>
                     <span className="think-box-orb" />
                     <span className="think-box-title">ragiono</span>
+                    <span className="think-box-time">{elapsed}s</span>
                     <span className="think-bar-anim">
                       <span /><span /><span /><span /><span />
                     </span>
+                    {stalled >= 45 && (
+                      <button
+                        className="think-cancel"
+                        title="Ferma ZEN se è bloccato"
+                        onClick={() => api.cancel().catch(() => undefined)}
+                      >
+                        interrompi
+                      </button>
+                    )}
+                  </div>
+                )}
+                {m.id === liveId.current && busy && stalled >= 45 && !thinking && (
+                  <div className="think-stall">
+                    nessun progresso da {stalled}s — potrebbe essere bloccato su un file grande
                   </div>
                 )}
                 <div

@@ -434,6 +434,29 @@ fn cached_opencode() -> (bool, String) {
     (inst, ver)
 }
 
+/// PID del processo opencode in corso: serve per interrompere un run bloccato.
+static RUNNING_PID: Mutex<Option<u32>> = Mutex::new(None);
+
+#[tauri::command]
+fn agent_cancel() -> Result<(), String> {
+    let pid = RUNNING_PID.lock().unwrap().take();
+    if let Some(pid) = pid {
+        #[cfg(target_os = "windows")]
+        {
+            let mut c = std::process::Command::new("taskkill");
+            c.args(["/PID", &pid.to_string(), "/T", "/F"]);
+            silence(&mut c);
+            c.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+            let _ = c.status();
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            let _ = pid;
+        }
+    }
+    Ok(())
+}
+
 fn run_opencode_args(args: &[&str], cwd: &str) -> Result<String, String> {
     let out = opencode_command()
         .args(args)
@@ -1599,6 +1622,9 @@ fn run_streamed(
         .stdout(std::process::Stdio::piped())
         .stderr(Stdio::null());
     let mut child = cmd.spawn().map_err(|e| format!("avvio opencode fallito: {e}"))?;
+    if let Ok(mut p) = RUNNING_PID.lock() {
+        *p = Some(child.id());
+    }
     let stdout = child.stdout.take().ok_or("stdout mancante")?;
     let mut early_text = String::new();
     let mut late_text = String::new();
@@ -1680,6 +1706,9 @@ fn run_streamed(
         }
     }
     let st = child.wait().map_err(|e| format!("attesa opencode fallita: {e}"))?;
+    if let Ok(mut p) = RUNNING_PID.lock() {
+        *p = None;
+    }
     if !st.success() {
         return Err("opencode errore (stream)".into());
     }
@@ -2750,6 +2779,7 @@ fn main() {
             set_drop_dragging,
             panel_grow,
             panel_rest,
+            agent_cancel,
             file_info,
             phone_start,
             phone_stop,
